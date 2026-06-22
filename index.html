@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InsightAccess — Cross-Team Progress Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --build-hdr:#1D4ED8; --build-light:#EFF6FF; --build-text:#1E3A8A;
@@ -16,25 +17,42 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:#F0F4F8;color:var(--text-primary);min-height:100vh}
 
-/* topbar */
 .topbar{background:var(--navy);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
 .topbar-left{display:flex;align-items:baseline;gap:10px}
 .topbar-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px}
 .topbar-sub{font-size:11px;color:#94A3B8}
-.topbar-right{display:flex;align-items:center;gap:8px}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .last-saved{font-size:11px;color:#475569}
+.sync-badge{font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600}
+.sync-ok{background:#DCFCE7;color:#14532D}
+.sync-err{background:#FEE2E2;color:#7F1D1D}
+.sync-loading{background:#FEF3C7;color:#92400E;animation:pulse 1.5s ease-in-out infinite}
 .edit-badge{font-size:11px;background:#FEF3C7;color:#92400E;padding:3px 9px;border-radius:99px;font-weight:600;animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 
-/* buttons */
 .btn{font-size:12px;font-weight:600;padding:6px 13px;border-radius:6px;border:none;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
 .btn-edit{background:#6366F1;color:#fff}.btn-edit:hover{background:#4F46E5}
 .btn-save{background:#22C55E;color:#fff}.btn-save:hover{background:#16A34A}
 .btn-cancel{background:transparent;color:#94A3B8;border:1px solid #334155}.btn-cancel:hover{background:#1E293B;color:#fff}
 .btn-ghost{background:transparent;color:#94A3B8;border:1px solid #334155}.btn-ghost:hover{background:#1E293B;color:#CBD5E1}
-.btn-bulk{background:#0F1F3D;color:#fff;border:1px solid #1E3A8A}.btn-bulk:hover{background:#1E3A8A}
 
-/* wrapper & table */
+.bulk-bar{background:#1E293B;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #334155}
+.bulk-label{font-size:12px;font-weight:700;color:#CBD5E1;white-space:nowrap}
+.bulk-sep{width:1px;height:24px;background:#334155;flex-shrink:0}
+.bulk-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bulk-group-label{font-size:11px;color:#64748B;white-space:nowrap}
+select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F172A;color:#CBD5E1;border:1px solid #334155;outline:none;cursor:pointer}
+.bulk-pct-btns{display:flex;gap:4px}
+.bpb{font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
+.bpb:active{transform:scale(.95)}
+.bpb-10{background:#FEE2E2;color:#7F1D1D}.bpb-10:hover{background:#FECACA}
+.bpb-30{background:#FEF3C7;color:#78350F}.bpb-30:hover{background:#FDE68A}
+.bpb-50{background:#DBEAFE;color:#1E3A8A}.bpb-50:hover{background:#BFDBFE}
+.bpb-80{background:#D1FAE5;color:#065F46}.bpb-80:hover{background:#A7F3D0}
+.bpb-100{background:#22C55E;color:#fff}.bpb-100:hover{background:#16A34A}
+.bpb-na{background:#334155;color:#94A3B8}.bpb-na:hover{background:#475569;color:#fff}
+.bulk-count{font-size:11px;color:#94A3B8}
+
 .wrapper{padding:16px 20px 40px;overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:1100px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid var(--border-strong);font-size:12px}
 .hdr-stage{font-size:10px;font-weight:700;letter-spacing:1.8px;text-align:center;text-transform:uppercase;padding:8px 4px;color:#fff;border:none}
@@ -51,13 +69,11 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 .cell-stage-sep{border-left:2px solid var(--border-strong)!important}
 .cell-prog{padding:5px 6px;text-align:center;min-width:90px;vertical-align:middle}
 
-/* view: bar */
 .bar-wrap{height:20px;border-radius:4px;background:#E2E8F0;overflow:hidden;position:relative}
 .bar-fill{height:100%;border-radius:4px;transition:width .3s ease}
 .bar-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
 .cell-na{color:var(--text-hint);font-size:14px;text-align:center;padding:8px 0;letter-spacing:1px}
 
-/* edit: quick-pick cell */
 .qp-wrap{display:flex;flex-direction:column;gap:3px;align-items:stretch}
 .qp-bar-row{display:flex;align-items:center;gap:4px}
 .qp-input{width:44px;padding:3px 4px;font-size:11px;font-weight:600;border:1.5px solid var(--edit-ring);border-radius:4px;background:#fff;color:var(--text-primary);text-align:center;outline:none}
@@ -67,33 +83,13 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 .qp-btns{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
 .qb{font-size:10px;font-weight:600;padding:2px 5px;border-radius:3px;border:none;cursor:pointer;transition:all .1s;line-height:1.3}
 .qb:active{transform:scale(.93)}
-.qb-10 {background:#FEE2E2;color:#7F1D1D}.qb-10:hover {background:#FECACA}
-.qb-30 {background:#FEF3C7;color:#78350F}.qb-30:hover {background:#FDE68A}
-.qb-50 {background:#DBEAFE;color:#1E3A8A}.qb-50:hover {background:#BFDBFE}
-.qb-80 {background:#D1FAE5;color:#065F46}.qb-80:hover {background:#A7F3D0}
-.qb-100{background:#22C55E;color:#fff}   .qb-100:hover{background:#16A34A}
-.qb-na {background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1}.qb-na:hover{background:#E2E8F0}
+.qb-10{background:#FEE2E2;color:#7F1D1D}.qb-10:hover{background:#FECACA}
+.qb-30{background:#FEF3C7;color:#78350F}.qb-30:hover{background:#FDE68A}
+.qb-50{background:#DBEAFE;color:#1E3A8A}.qb-50:hover{background:#BFDBFE}
+.qb-80{background:#D1FAE5;color:#065F46}.qb-80:hover{background:#A7F3D0}
+.qb-100{background:#22C55E;color:#fff}.qb-100:hover{background:#16A34A}
+.qb-na{background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1}.qb-na:hover{background:#E2E8F0}
 
-/* bulk panel */
-.bulk-bar{background:#1E293B;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #334155}
-.bulk-label{font-size:12px;font-weight:700;color:#CBD5E1;white-space:nowrap}
-.bulk-sep{width:1px;height:24px;background:#334155;flex-shrink:0}
-.bulk-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.bulk-group-label{font-size:11px;color:#64748B;white-space:nowrap}
-select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F172A;color:#CBD5E1;border:1px solid #334155;outline:none;cursor:pointer}
-.bulk-pct-btns{display:flex;gap:4px}
-.bpb{font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
-.bpb:active{transform:scale(.95)}
-.bpb-10 {background:#FEE2E2;color:#7F1D1D}.bpb-10:hover{background:#FECACA}
-.bpb-30 {background:#FEF3C7;color:#78350F}.bpb-30:hover{background:#FDE68A}
-.bpb-50 {background:#DBEAFE;color:#1E3A8A}.bpb-50:hover{background:#BFDBFE}
-.bpb-80 {background:#D1FAE5;color:#065F46}.bpb-80:hover{background:#A7F3D0}
-.bpb-100{background:#22C55E;color:#fff}  .bpb-100:hover{background:#16A34A}
-.bpb-na {background:#334155;color:#94A3B8}.bpb-na:hover{background:#475569;color:#fff}
-.bulk-apply{background:#6366F1;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;border:none;cursor:pointer}.bulk-apply:hover{background:#4F46E5}
-.bulk-count{font-size:11px;color:#94A3B8}
-
-/* log */
 .log-panel{margin:14px 20px 0;background:#fff;border-radius:10px;border:1px solid var(--border-strong);overflow:hidden}
 .log-header{background:var(--navy);color:#fff;padding:10px 16px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
 .log-body{max-height:210px;overflow-y:auto}
@@ -109,18 +105,26 @@ select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F1
 .log-to{font-weight:700;text-align:right}
 .log-empty{padding:20px;text-align:center;color:var(--text-hint);font-size:12px}
 
-/* legend */
 .legend{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap;align-items:center}
 .leg-label{font-size:11px;color:var(--text-muted);font-weight:600;margin-right:4px}
 .leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)}
 .leg-dot{width:11px;height:11px;border-radius:3px}
 
-/* toast */
 .toast{position:fixed;bottom:20px;right:20px;background:#0F172A;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;z-index:999}
 .toast.show{opacity:1;transform:translateY(0)}
+
+.loading-overlay{position:fixed;inset:0;background:rgba(15,31,61,.7);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+.loading-spinner{width:36px;height:36px;border:3px solid #334155;border-top-color:#6366F1;border-radius:50%;animation:spin .7s linear infinite}
+.loading-text{color:#fff;font-size:14px;font-weight:500}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading tracker data...</div>
+</div>
 
 <div class="topbar">
   <div class="topbar-left">
@@ -129,6 +133,7 @@ select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F1
   </div>
   <div class="topbar-right">
     <span class="last-saved" id="lastSaved"></span>
+    <span class="sync-badge sync-loading" id="syncBadge">Connecting...</span>
     <span class="edit-badge" id="editBadge" style="display:none">● Editing</span>
     <button class="btn btn-ghost" onclick="toggleLog()" id="logBtn">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -137,16 +142,15 @@ select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F1
     <button class="btn btn-cancel" id="cancelBtn" style="display:none" onclick="cancelEdit()">Cancel</button>
     <button class="btn btn-save" id="saveBtn" style="display:none" onclick="saveChanges()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-      Save changes
+      Save & sync
     </button>
-    <button class="btn btn-edit" id="editBtn" onclick="enterEdit()">
+    <button class="btn btn-edit" id="editBtn" onclick="enterEdit()" style="display:none">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       Edit progress
     </button>
   </div>
 </div>
 
-<!-- bulk bar (only visible in edit mode) -->
 <div class="bulk-bar" id="bulkBar" style="display:none">
   <span class="bulk-label">Bulk update</span>
   <div class="bulk-sep"></div>
@@ -154,7 +158,6 @@ select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F1
     <span class="bulk-group-label">Modules:</span>
     <select class="bulk-sel" id="bulkModSel">
       <option value="__all__">All 22 modules</option>
-      <option value="__group_build__">── BUILD group ──</option>
       <option value="Super Admin">Super Admin</option>
       <option value="Onboarding">Onboarding</option>
       <option value="Talent Acquisition">Talent Acquisition</option>
@@ -184,15 +187,12 @@ select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F1
     <span class="bulk-group-label">Column:</span>
     <select class="bulk-sel" id="bulkColSel">
       <option value="__all__">All columns</option>
-      <option value="__group_build__">── BUILD ──</option>
       <option value="build">Build</option>
       <option value="define">Define</option>
-      <option value="__group_logic__">── LOGIC & DESIGN ──</option>
       <option value="req">Requirements</option>
       <option value="iterate">Iterate</option>
       <option value="dep">Dependency</option>
       <option value="design">Design</option>
-      <option value="__group_qa__">── QA ──</option>
       <option value="qacheck">QA Check</option>
       <option value="bugfix">Bug Fix</option>
       <option value="handover">Handover</option>
@@ -263,6 +263,10 @@ select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F1
 <div class="toast" id="toast"></div>
 
 <script>
+const SUPABASE_URL = 'https://kcjslemxrwtqvprdphsr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__szrQ7PcHiJyhsPoQd5xsw_SNds37hz';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const COLS = [
   {key:'build',   label:'Build',        group:'build'},
   {key:'define',  label:'Define',       group:'build'},
@@ -283,7 +287,7 @@ const MODULES = [
   'AI Chatbot','Subsidiaries','Integrations'
 ];
 
-const DEFAULT_DATA = {
+const DEFAULTS = {
   'Super Admin':       {build:100,define:100,req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
   'Onboarding':        {build:100,define:100,req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
   'Talent Acquisition':{build:100,define:100,req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
@@ -308,10 +312,59 @@ const DEFAULT_DATA = {
   'Integrations':      {build:0,  define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
 };
 
-let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let data = JSON.parse(JSON.stringify(DEFAULTS));
 let editSnapshot = null;
 let editMode = false;
 let updateLog = [];
+
+function setSyncBadge(state, msg) {
+  const b = document.getElementById('syncBadge');
+  b.className = 'sync-badge ' + state;
+  b.textContent = msg;
+}
+
+/* ── Supabase load ── */
+async function loadFromDB() {
+  try {
+    const { data: rows, error } = await sb.from('progress').select('*');
+    if (error) throw error;
+    if (rows && rows.length > 0) {
+      rows.forEach(r => {
+        if (data[r.module] !== undefined) {
+          data[r.module][r.col_key] = r.value; // null stays null
+        }
+      });
+    } else {
+      await seedDB();
+    }
+    setSyncBadge('sync-ok', '✓ Synced');
+    document.getElementById('editBtn').style.display = 'flex';
+  } catch(e) {
+    setSyncBadge('sync-err', '✗ Connection error');
+    console.error(e);
+    document.getElementById('editBtn').style.display = 'flex';
+  }
+  document.getElementById('loadingOverlay').style.display = 'none';
+  renderTable();
+}
+
+/* seed DB with defaults on first load */
+async function seedDB() {
+  const rows = [];
+  MODULES.forEach(mod => {
+    COLS.forEach(col => {
+      rows.push({ module: mod, col_key: col.key, value: DEFAULTS[mod][col.key] });
+    });
+  });
+  await sb.from('progress').upsert(rows, { onConflict: 'module,col_key' });
+}
+
+/* ── Supabase save ── */
+async function saveToDB(changes) {
+  const rows = changes.map(c => ({ module: c.mod, col_key: c.col, value: c.to }));
+  const { error } = await sb.from('progress').upsert(rows, { onConflict: 'module,col_key' });
+  if (error) throw error;
+}
 
 function pctStyle(v) {
   if (v === null) return {bar:'#CBD5E1',txt:'#64748B'};
@@ -321,7 +374,6 @@ function pctStyle(v) {
   return               {bar:'#EF4444',txt:'#7F1D1D'};
 }
 
-/* ── VIEW MODE: progress bar ── */
 function renderBar(mod, colKey) {
   const v = data[mod][colKey];
   if (v === null) return `<div class="cell-na">—</div>`;
@@ -329,7 +381,6 @@ function renderBar(mod, colKey) {
   return `<div class="bar-wrap"><div class="bar-fill" style="width:${v}%;background:${s.bar}"></div><div class="bar-label" style="color:${v===0?'#94A3B8':s.txt}">${v}%</div></div>`;
 }
 
-/* ── EDIT MODE: quick-pick cell ── */
 function renderQP(mod, colKey) {
   const v = data[mod][colKey];
   const isNA = v === null;
@@ -356,15 +407,15 @@ function renderQP(mod, colKey) {
 
 function qpSet(mod, col, val) {
   data[mod][col] = val;
-  refreshCell(mod, col);
+  const td = document.querySelector(`[data-cell="${mod}|${col}"]`);
+  if (td) td.innerHTML = renderQP(mod, col);
 }
 
 function qpInputChange(inp) {
-  const mod = inp.dataset.mod, col = inp.dataset.col;
   let v = parseInt(inp.value);
   if (isNaN(v)) return;
   v = Math.min(100, Math.max(0, v));
-  data[mod][col] = v;
+  data[inp.dataset.mod][inp.dataset.col] = v;
   const fill = inp.closest('.qp-wrap').querySelector('.qp-mini-fill');
   const s = pctStyle(v);
   fill.style.width = v + '%';
@@ -372,29 +423,18 @@ function qpInputChange(inp) {
 }
 
 function qpBlur(inp) {
-  const mod = inp.dataset.mod, col = inp.dataset.col;
   let v = parseInt(inp.value);
   if (isNaN(v) || v < 0) v = 0;
   if (v > 100) v = 100;
   inp.value = v;
-  data[mod][col] = v;
-  refreshCell(mod, col);
+  data[inp.dataset.mod][inp.dataset.col] = v;
 }
 
-/* refresh a single cell without full re-render */
-function refreshCell(mod, col) {
-  const td = document.querySelector(`[data-cell="${mod}|${col}"]`);
-  if (!td) return;
-  td.innerHTML = editMode ? renderQP(mod, col) : renderBar(mod, col);
-}
-
-/* ── Bulk update ── */
 function bulkApply(val) {
   const modSel = document.getElementById('bulkModSel').value;
   const colSel = document.getElementById('bulkColSel').value;
-  const mods = modSel === '__all__' ? MODULES : (modSel.startsWith('__') ? [] : [modSel]);
-  const cols = colSel === '__all__' ? COLS.map(c=>c.key) : (colSel.startsWith('__') ? [] : [colSel]);
-  if (!mods.length || !cols.length) { showToast('Select a valid module/column'); return; }
+  const mods = modSel === '__all__' ? MODULES : [modSel];
+  const cols = colSel === '__all__' ? COLS.map(c=>c.key) : [colSel];
   let count = 0;
   mods.forEach(m => cols.forEach(c => { data[m][c] = val; count++; }));
   renderTable();
@@ -403,7 +443,6 @@ function bulkApply(val) {
   setTimeout(() => document.getElementById('bulkCount').textContent = '', 3000);
 }
 
-/* ── Table render ── */
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = MODULES.map(mod => {
@@ -416,7 +455,6 @@ function renderTable() {
   }).join('');
 }
 
-/* ── Edit mode lifecycle ── */
 function enterEdit() {
   editSnapshot = JSON.parse(JSON.stringify(data));
   editMode = true;
@@ -440,8 +478,7 @@ function cancelEdit() {
   showToast('Changes discarded');
 }
 
-function saveChanges() {
-  /* flush any typed-but-not-blurred inputs */
+async function saveChanges() {
   document.querySelectorAll('.qp-input').forEach(inp => {
     let v = parseInt(inp.value);
     if (!isNaN(v)) data[inp.dataset.mod][inp.dataset.col] = Math.min(100,Math.max(0,v));
@@ -449,29 +486,43 @@ function saveChanges() {
 
   const now = new Date();
   const ts = now.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  let changes = 0;
+  const changes = [];
+
   MODULES.forEach(mod => COLS.forEach(col => {
     const prev = editSnapshot[mod][col.key], curr = data[mod][col.key];
-    if (prev !== curr) { changes++; updateLog.unshift({ts, mod, col:col.label, from:prev, to:curr}); }
+    if (prev !== curr) changes.push({ ts, mod, col: col.label, colKey: col.key, from: prev, to: curr });
   }));
+
+  setSyncBadge('sync-loading', 'Saving...');
+  document.getElementById('saveBtn').disabled = true;
+
+  try {
+    if (changes.length > 0) {
+      await saveToDB(changes.map(c => ({mod: c.mod, col: c.colKey, to: c.to})));
+      changes.forEach(c => updateLog.unshift(c));
+    }
+    setSyncBadge('sync-ok', '✓ Synced');
+    const savedTs = now.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('lastSaved').textContent = `Last saved: ${savedTs}`;
+    showToast(changes.length > 0 ? `Saved & synced — ${changes.length} field${changes.length>1?'s':''} updated` : 'No changes to save');
+  } catch(e) {
+    setSyncBadge('sync-err', '✗ Save failed');
+    showToast('Save failed — check connection');
+    console.error(e);
+  }
 
   editMode = false;
   editSnapshot = null;
   document.getElementById('editBtn').style.display   = 'flex';
   document.getElementById('saveBtn').style.display   = 'none';
+  document.getElementById('saveBtn').disabled        = false;
   document.getElementById('cancelBtn').style.display = 'none';
   document.getElementById('editBadge').style.display = 'none';
   document.getElementById('bulkBar').style.display   = 'none';
-
-  const savedTs = now.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-  document.getElementById('lastSaved').textContent = `Last saved: ${savedTs}`;
-
   renderTable();
   renderLog();
-  showToast(changes > 0 ? `Saved — ${changes} field${changes>1?'s':''} updated` : 'Saved — no changes');
 }
 
-/* ── Log ── */
 function renderLog() {
   const el = document.getElementById('logEntries');
   if (!updateLog.length) { el.innerHTML = '<div class="log-empty">No updates logged yet.</div>'; return; }
@@ -481,20 +532,20 @@ function renderLog() {
     return `<div class="log-entry"><div class="log-ts">${e.ts}</div><div class="log-mod">${e.mod}</div><div class="log-col">${e.col}</div><div class="log-from">${fStr}</div><div class="log-to" style="color:${e.to===null?'#94A3B8':s.bar}">${tStr}</div></div>`;
   }).join('');
 }
+
 function toggleLog() {
   const p = document.getElementById('logPanel');
   p.style.display = p.style.display==='none' ? 'block' : 'none';
   if (p.style.display==='block') renderLog();
 }
 
-/* ── Toast ── */
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2600);
+  setTimeout(()=>t.classList.remove('show'), 2800);
 }
 
-renderTable();
+loadFromDB();
 </script>
 </body>
 </html>
