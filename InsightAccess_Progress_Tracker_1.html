@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InsightAccess — Cross-Team Progress Tracker</title>
+<style>
+:root {
+  --build-hdr:#1D4ED8; --build-light:#EFF6FF; --build-text:#1E3A8A;
+  --logic-hdr:#6D28D9; --logic-light:#F5F3FF; --logic-text:#3B0764;
+  --qa-hdr:#0F766E;   --qa-light:#F0FDFA;   --qa-text:#134E4A;
+  --navy:#0F1F3D; --surface:#F8FAFC; --border:#E2E8F0; --border-strong:#CBD5E1;
+  --text-primary:#0F172A; --text-muted:#64748B; --text-hint:#94A3B8;
+  --row-alt:#F1F5F9; --edit-ring:#6366F1;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#F0F4F8;color:var(--text-primary);min-height:100vh}
+
+/* topbar */
+.topbar{background:var(--navy);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.topbar-left{display:flex;align-items:baseline;gap:10px}
+.topbar-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.topbar-sub{font-size:11px;color:#94A3B8}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.last-saved{font-size:11px;color:#475569}
+.edit-badge{font-size:11px;background:#FEF3C7;color:#92400E;padding:3px 9px;border-radius:99px;font-weight:600;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* buttons */
+.btn{font-size:12px;font-weight:600;padding:6px 13px;border-radius:6px;border:none;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
+.btn-edit{background:#6366F1;color:#fff}.btn-edit:hover{background:#4F46E5}
+.btn-save{background:#22C55E;color:#fff}.btn-save:hover{background:#16A34A}
+.btn-cancel{background:transparent;color:#94A3B8;border:1px solid #334155}.btn-cancel:hover{background:#1E293B;color:#fff}
+.btn-ghost{background:transparent;color:#94A3B8;border:1px solid #334155}.btn-ghost:hover{background:#1E293B;color:#CBD5E1}
+.btn-bulk{background:#0F1F3D;color:#fff;border:1px solid #1E3A8A}.btn-bulk:hover{background:#1E3A8A}
+
+/* wrapper & table */
+.wrapper{padding:16px 20px 40px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:1100px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid var(--border-strong);font-size:12px}
+.hdr-stage{font-size:10px;font-weight:700;letter-spacing:1.8px;text-align:center;text-transform:uppercase;padding:8px 4px;color:#fff;border:none}
+.hdr-stage.build{background:var(--build-hdr)}.hdr-stage.logic{background:var(--logic-hdr)}.hdr-stage.qa{background:var(--qa-hdr)}
+.hdr-sub{font-size:11px;font-weight:600;text-align:center;padding:6px 4px;border-bottom:1px solid var(--border-strong);border-right:1px solid var(--border);white-space:nowrap}
+.hdr-sub.build{background:var(--build-light);color:var(--build-text)}
+.hdr-sub.logic{background:var(--logic-light);color:var(--logic-text)}
+.hdr-sub.qa{background:var(--qa-light);color:var(--qa-text)}
+.hdr-module{background:var(--navy);color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px;text-align:left;padding:8px 14px;border-right:2px solid var(--border-strong);vertical-align:bottom}
+tr.data-row:nth-child(odd) td{background:#fff}
+tr.data-row:nth-child(even) td{background:var(--row-alt)}
+tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.cell-module{font-weight:600;font-size:12px;color:var(--text-primary);padding:8px 14px;white-space:nowrap;border-right:2px solid var(--border-strong)!important;min-width:150px}
+.cell-stage-sep{border-left:2px solid var(--border-strong)!important}
+.cell-prog{padding:5px 6px;text-align:center;min-width:90px;vertical-align:middle}
+
+/* view: bar */
+.bar-wrap{height:20px;border-radius:4px;background:#E2E8F0;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:4px;transition:width .3s ease}
+.bar-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.cell-na{color:var(--text-hint);font-size:14px;text-align:center;padding:8px 0;letter-spacing:1px}
+
+/* edit: quick-pick cell */
+.qp-wrap{display:flex;flex-direction:column;gap:3px;align-items:stretch}
+.qp-bar-row{display:flex;align-items:center;gap:4px}
+.qp-input{width:44px;padding:3px 4px;font-size:11px;font-weight:600;border:1.5px solid var(--edit-ring);border-radius:4px;background:#fff;color:var(--text-primary);text-align:center;outline:none}
+.qp-input:focus{box-shadow:0 0 0 3px rgba(99,102,241,.2)}
+.qp-mini-bar{flex:1;height:8px;border-radius:3px;background:#E2E8F0;overflow:hidden;position:relative}
+.qp-mini-fill{height:100%;border-radius:3px;transition:width .2s}
+.qp-btns{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
+.qb{font-size:10px;font-weight:600;padding:2px 5px;border-radius:3px;border:none;cursor:pointer;transition:all .1s;line-height:1.3}
+.qb:active{transform:scale(.93)}
+.qb-10 {background:#FEE2E2;color:#7F1D1D}.qb-10:hover {background:#FECACA}
+.qb-30 {background:#FEF3C7;color:#78350F}.qb-30:hover {background:#FDE68A}
+.qb-50 {background:#DBEAFE;color:#1E3A8A}.qb-50:hover {background:#BFDBFE}
+.qb-80 {background:#D1FAE5;color:#065F46}.qb-80:hover {background:#A7F3D0}
+.qb-100{background:#22C55E;color:#fff}   .qb-100:hover{background:#16A34A}
+.qb-na {background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1}.qb-na:hover{background:#E2E8F0}
+
+/* bulk panel */
+.bulk-bar{background:#1E293B;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #334155}
+.bulk-label{font-size:12px;font-weight:700;color:#CBD5E1;white-space:nowrap}
+.bulk-sep{width:1px;height:24px;background:#334155;flex-shrink:0}
+.bulk-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bulk-group-label{font-size:11px;color:#64748B;white-space:nowrap}
+select.bulk-sel{font-size:11px;padding:4px 8px;border-radius:5px;background:#0F172A;color:#CBD5E1;border:1px solid #334155;outline:none;cursor:pointer}
+.bulk-pct-btns{display:flex;gap:4px}
+.bpb{font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
+.bpb:active{transform:scale(.95)}
+.bpb-10 {background:#FEE2E2;color:#7F1D1D}.bpb-10:hover{background:#FECACA}
+.bpb-30 {background:#FEF3C7;color:#78350F}.bpb-30:hover{background:#FDE68A}
+.bpb-50 {background:#DBEAFE;color:#1E3A8A}.bpb-50:hover{background:#BFDBFE}
+.bpb-80 {background:#D1FAE5;color:#065F46}.bpb-80:hover{background:#A7F3D0}
+.bpb-100{background:#22C55E;color:#fff}  .bpb-100:hover{background:#16A34A}
+.bpb-na {background:#334155;color:#94A3B8}.bpb-na:hover{background:#475569;color:#fff}
+.bulk-apply{background:#6366F1;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;border:none;cursor:pointer}.bulk-apply:hover{background:#4F46E5}
+.bulk-count{font-size:11px;color:#94A3B8}
+
+/* log */
+.log-panel{margin:14px 20px 0;background:#fff;border-radius:10px;border:1px solid var(--border-strong);overflow:hidden}
+.log-header{background:var(--navy);color:#fff;padding:10px 16px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.log-body{max-height:210px;overflow-y:auto}
+.log-entry-hdr,.log-entry{display:grid;grid-template-columns:155px 1fr 90px 65px 65px;font-size:11px;border-bottom:1px solid var(--border)}
+.log-entry-hdr{background:var(--surface);border-bottom:1px solid var(--border-strong)}
+.log-entry-hdr>div{padding:5px 10px;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+.log-entry>div{padding:6px 10px}
+.log-entry:last-child{border-bottom:none}
+.log-ts{color:var(--text-muted);font-variant-numeric:tabular-nums}
+.log-mod{font-weight:600}
+.log-col{color:var(--text-muted);font-size:10px}
+.log-from{color:var(--text-hint);text-align:right;text-decoration:line-through}
+.log-to{font-weight:700;text-align:right}
+.log-empty{padding:20px;text-align:center;color:var(--text-hint);font-size:12px}
+
+/* legend */
+.legend{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap;align-items:center}
+.leg-label{font-size:11px;color:var(--text-muted);font-weight:600;margin-right:4px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)}
+.leg-dot{width:11px;height:11px;border-radius:3px}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:20px;background:#0F172A;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">InsightAccess</span>
+    <span class="topbar-sub">Cross-team progress tracker · V2 delivery</span>
+  </div>
+  <div class="topbar-right">
+    <span class="last-saved" id="lastSaved"></span>
+    <span class="edit-badge" id="editBadge" style="display:none">● Editing</span>
+    <button class="btn btn-ghost" onclick="toggleLog()" id="logBtn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Update log
+    </button>
+    <button class="btn btn-cancel" id="cancelBtn" style="display:none" onclick="cancelEdit()">Cancel</button>
+    <button class="btn btn-save" id="saveBtn" style="display:none" onclick="saveChanges()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save changes
+    </button>
+    <button class="btn btn-edit" id="editBtn" onclick="enterEdit()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit progress
+    </button>
+  </div>
+</div>
+
+<!-- bulk bar (only visible in edit mode) -->
+<div class="bulk-bar" id="bulkBar" style="display:none">
+  <span class="bulk-label">Bulk update</span>
+  <div class="bulk-sep"></div>
+  <div class="bulk-group">
+    <span class="bulk-group-label">Modules:</span>
+    <select class="bulk-sel" id="bulkModSel">
+      <option value="__all__">All 22 modules</option>
+      <option value="__group_build__">── BUILD group ──</option>
+      <option value="Super Admin">Super Admin</option>
+      <option value="Onboarding">Onboarding</option>
+      <option value="Talent Acquisition">Talent Acquisition</option>
+      <option value="JD Management">JD Management</option>
+      <option value="Org Chart">Org Chart</option>
+      <option value="Assessment">Assessment</option>
+      <option value="Strategy">Strategy</option>
+      <option value="Skills">Skills</option>
+      <option value="BSC">BSC</option>
+      <option value="IDP">IDP</option>
+      <option value="Career Pathing">Career Pathing</option>
+      <option value="Succession">Succession</option>
+      <option value="Performance">Performance</option>
+      <option value="Survey Management">Survey Management</option>
+      <option value="HRIS">HRIS</option>
+      <option value="Financial">Financial</option>
+      <option value="AI Token">AI Token</option>
+      <option value="Metric Library">Metric Library</option>
+      <option value="Workflow Engine">Workflow Engine</option>
+      <option value="AI Chatbot">AI Chatbot</option>
+      <option value="Subsidiaries">Subsidiaries</option>
+      <option value="Integrations">Integrations</option>
+    </select>
+  </div>
+  <div class="bulk-sep"></div>
+  <div class="bulk-group">
+    <span class="bulk-group-label">Column:</span>
+    <select class="bulk-sel" id="bulkColSel">
+      <option value="__all__">All columns</option>
+      <option value="__group_build__">── BUILD ──</option>
+      <option value="build">Build</option>
+      <option value="define">Define</option>
+      <option value="__group_logic__">── LOGIC & DESIGN ──</option>
+      <option value="req">Requirements</option>
+      <option value="iterate">Iterate</option>
+      <option value="dep">Dependency</option>
+      <option value="design">Design</option>
+      <option value="__group_qa__">── QA ──</option>
+      <option value="qacheck">QA Check</option>
+      <option value="bugfix">Bug Fix</option>
+      <option value="handover">Handover</option>
+    </select>
+  </div>
+  <div class="bulk-sep"></div>
+  <div class="bulk-group">
+    <span class="bulk-group-label">Set to:</span>
+    <div class="bulk-pct-btns">
+      <button class="bpb bpb-10"  onclick="bulkApply(10)">10%</button>
+      <button class="bpb bpb-30"  onclick="bulkApply(30)">30%</button>
+      <button class="bpb bpb-50"  onclick="bulkApply(50)">50%</button>
+      <button class="bpb bpb-80"  onclick="bulkApply(80)">80%</button>
+      <button class="bpb bpb-100" onclick="bulkApply(100)">100%</button>
+      <button class="bpb bpb-na"  onclick="bulkApply(null)">—</button>
+    </div>
+  </div>
+  <span class="bulk-count" id="bulkCount"></span>
+</div>
+
+<div class="wrapper">
+<table id="mainTable">
+  <thead>
+    <tr>
+      <th class="hdr-module" rowspan="2">Module</th>
+      <th class="hdr-stage build" colspan="2">BUILD</th>
+      <th class="hdr-stage logic" colspan="4">LOGIC &amp; DESIGN</th>
+      <th class="hdr-stage qa" colspan="3">QA</th>
+    </tr>
+    <tr>
+      <th class="hdr-sub build">Build</th>
+      <th class="hdr-sub build">Define</th>
+      <th class="hdr-sub logic cell-stage-sep">Requirements</th>
+      <th class="hdr-sub logic">Iterate</th>
+      <th class="hdr-sub logic">Dependency</th>
+      <th class="hdr-sub logic">Design</th>
+      <th class="hdr-sub qa cell-stage-sep">QA Check</th>
+      <th class="hdr-sub qa">Bug Fix</th>
+      <th class="hdr-sub qa">Handover</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<div class="legend">
+  <span class="leg-label">Progress:</span>
+  <span class="leg"><span class="leg-dot" style="background:#22C55E"></span>100% done</span>
+  <span class="leg"><span class="leg-dot" style="background:#3B82F6"></span>60–99% in progress</span>
+  <span class="leg"><span class="leg-dot" style="background:#F59E0B"></span>1–59% ongoing</span>
+  <span class="leg"><span class="leg-dot" style="background:#EF4444"></span>0% not started</span>
+  <span class="leg"><span class="leg-dot" style="background:#CBD5E1"></span>— not scheduled</span>
+</div>
+
+<div class="log-panel" id="logPanel" style="display:none">
+  <div class="log-header">
+    <span>Update log</span>
+    <button class="btn btn-cancel" style="padding:3px 10px;font-size:11px" onclick="toggleLog()">Close</button>
+  </div>
+  <div class="log-body">
+    <div class="log-entry-hdr">
+      <div>Timestamp</div><div>Module</div><div>Column</div><div>From</div><div>To</div>
+    </div>
+    <div id="logEntries"><div class="log-empty">No updates logged yet.</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLS = [
+  {key:'build',   label:'Build',        group:'build'},
+  {key:'define',  label:'Define',       group:'build'},
+  {key:'req',     label:'Requirements', group:'logic', sep:true},
+  {key:'iterate', label:'Iterate',      group:'logic'},
+  {key:'dep',     label:'Dependency',   group:'logic'},
+  {key:'design',  label:'Design',       group:'logic'},
+  {key:'qacheck', label:'QA Check',     group:'qa',   sep:true},
+  {key:'bugfix',  label:'Bug Fix',      group:'qa'},
+  {key:'handover',label:'Handover',     group:'qa'},
+];
+
+const MODULES = [
+  'Super Admin','Onboarding','Talent Acquisition','JD Management',
+  'Org Chart','Assessment','Strategy','Skills','BSC','IDP',
+  'Career Pathing','Succession','Performance','Survey Management',
+  'HRIS','Financial','AI Token','Metric Library','Workflow Engine',
+  'AI Chatbot','Subsidiaries','Integrations'
+];
+
+const DEFAULT_DATA = {
+  'Super Admin':       {build:100,define:100,req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Onboarding':        {build:100,define:100,req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Talent Acquisition':{build:100,define:100,req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'JD Management':     {build:70, define:65, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Org Chart':         {build:55, define:65, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Assessment':        {build:60, define:75, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Strategy':          {build:50, define:50, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Skills':            {build:40, define:50, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'BSC':               {build:40, define:25, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'IDP':               {build:50, define:30, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Career Pathing':    {build:45, define:35, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Succession':        {build:55, define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Performance':       {build:40, define:40, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Survey Management': {build:60, define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'HRIS':              {build:40, define:20, req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Financial':         {build:35, define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'AI Token':          {build:30, define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Metric Library':    {build:25, define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Workflow Engine':   {build:15, define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'AI Chatbot':        {build:0,  define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Subsidiaries':      {build:0,  define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+  'Integrations':      {build:0,  define:0,  req:null,iterate:null,dep:null,design:null,qacheck:0,bugfix:0,handover:0},
+};
+
+let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let editSnapshot = null;
+let editMode = false;
+let updateLog = [];
+
+function pctStyle(v) {
+  if (v === null) return {bar:'#CBD5E1',txt:'#64748B'};
+  if (v === 100)  return {bar:'#22C55E',txt:'#14532D'};
+  if (v >= 60)    return {bar:'#3B82F6',txt:'#1E3A8A'};
+  if (v > 0)      return {bar:'#F59E0B',txt:'#78350F'};
+  return               {bar:'#EF4444',txt:'#7F1D1D'};
+}
+
+/* ── VIEW MODE: progress bar ── */
+function renderBar(mod, colKey) {
+  const v = data[mod][colKey];
+  if (v === null) return `<div class="cell-na">—</div>`;
+  const s = pctStyle(v);
+  return `<div class="bar-wrap"><div class="bar-fill" style="width:${v}%;background:${s.bar}"></div><div class="bar-label" style="color:${v===0?'#94A3B8':s.txt}">${v}%</div></div>`;
+}
+
+/* ── EDIT MODE: quick-pick cell ── */
+function renderQP(mod, colKey) {
+  const v = data[mod][colKey];
+  const isNA = v === null;
+  const s = isNA ? {bar:'#CBD5E1'} : pctStyle(v);
+  const pct = isNA ? 0 : v;
+  const mEsc = mod.replace(/'/g,"\\'");
+  return `<div class="qp-wrap">
+    <div class="qp-bar-row">
+      <input class="qp-input" type="number" min="0" max="100" step="5" value="${isNA?'':pct}"
+        placeholder="${isNA?'—':''}" data-mod="${mEsc}" data-col="${colKey}"
+        oninput="qpInputChange(this)" onblur="qpBlur(this)">
+      <div class="qp-mini-bar"><div class="qp-mini-fill" style="width:${pct}%;background:${s.bar}"></div></div>
+    </div>
+    <div class="qp-btns">
+      <button class="qb qb-10"  onclick="qpSet('${mEsc}','${colKey}',10)">10</button>
+      <button class="qb qb-30"  onclick="qpSet('${mEsc}','${colKey}',30)">30</button>
+      <button class="qb qb-50"  onclick="qpSet('${mEsc}','${colKey}',50)">50</button>
+      <button class="qb qb-80"  onclick="qpSet('${mEsc}','${colKey}',80)">80</button>
+      <button class="qb qb-100" onclick="qpSet('${mEsc}','${colKey}',100)">100</button>
+      <button class="qb qb-na"  onclick="qpSet('${mEsc}','${colKey}',null)">—</button>
+    </div>
+  </div>`;
+}
+
+function qpSet(mod, col, val) {
+  data[mod][col] = val;
+  refreshCell(mod, col);
+}
+
+function qpInputChange(inp) {
+  const mod = inp.dataset.mod, col = inp.dataset.col;
+  let v = parseInt(inp.value);
+  if (isNaN(v)) return;
+  v = Math.min(100, Math.max(0, v));
+  data[mod][col] = v;
+  const fill = inp.closest('.qp-wrap').querySelector('.qp-mini-fill');
+  const s = pctStyle(v);
+  fill.style.width = v + '%';
+  fill.style.background = s.bar;
+}
+
+function qpBlur(inp) {
+  const mod = inp.dataset.mod, col = inp.dataset.col;
+  let v = parseInt(inp.value);
+  if (isNaN(v) || v < 0) v = 0;
+  if (v > 100) v = 100;
+  inp.value = v;
+  data[mod][col] = v;
+  refreshCell(mod, col);
+}
+
+/* refresh a single cell without full re-render */
+function refreshCell(mod, col) {
+  const td = document.querySelector(`[data-cell="${mod}|${col}"]`);
+  if (!td) return;
+  td.innerHTML = editMode ? renderQP(mod, col) : renderBar(mod, col);
+}
+
+/* ── Bulk update ── */
+function bulkApply(val) {
+  const modSel = document.getElementById('bulkModSel').value;
+  const colSel = document.getElementById('bulkColSel').value;
+  const mods = modSel === '__all__' ? MODULES : (modSel.startsWith('__') ? [] : [modSel]);
+  const cols = colSel === '__all__' ? COLS.map(c=>c.key) : (colSel.startsWith('__') ? [] : [colSel]);
+  if (!mods.length || !cols.length) { showToast('Select a valid module/column'); return; }
+  let count = 0;
+  mods.forEach(m => cols.forEach(c => { data[m][c] = val; count++; }));
+  renderTable();
+  const valStr = val === null ? '—' : val + '%';
+  document.getElementById('bulkCount').textContent = `${count} cell${count>1?'s':''} set to ${valStr}`;
+  setTimeout(() => document.getElementById('bulkCount').textContent = '', 3000);
+}
+
+/* ── Table render ── */
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = MODULES.map(mod => {
+    const cells = COLS.map(col => {
+      const sep = col.sep ? ' cell-stage-sep' : '';
+      const inner = editMode ? renderQP(mod, col.key) : renderBar(mod, col.key);
+      return `<td class="cell-prog${sep}" data-cell="${mod}|${col.key}">${inner}</td>`;
+    }).join('');
+    return `<tr class="data-row"><td class="cell-module">${mod}</td>${cells}</tr>`;
+  }).join('');
+}
+
+/* ── Edit mode lifecycle ── */
+function enterEdit() {
+  editSnapshot = JSON.parse(JSON.stringify(data));
+  editMode = true;
+  document.getElementById('editBtn').style.display   = 'none';
+  document.getElementById('saveBtn').style.display   = 'flex';
+  document.getElementById('cancelBtn').style.display = 'flex';
+  document.getElementById('editBadge').style.display = 'inline';
+  document.getElementById('bulkBar').style.display   = 'flex';
+  renderTable();
+}
+
+function cancelEdit() {
+  data = JSON.parse(JSON.stringify(editSnapshot));
+  editMode = false;
+  document.getElementById('editBtn').style.display   = 'flex';
+  document.getElementById('saveBtn').style.display   = 'none';
+  document.getElementById('cancelBtn').style.display = 'none';
+  document.getElementById('editBadge').style.display = 'none';
+  document.getElementById('bulkBar').style.display   = 'none';
+  renderTable();
+  showToast('Changes discarded');
+}
+
+function saveChanges() {
+  /* flush any typed-but-not-blurred inputs */
+  document.querySelectorAll('.qp-input').forEach(inp => {
+    let v = parseInt(inp.value);
+    if (!isNaN(v)) data[inp.dataset.mod][inp.dataset.col] = Math.min(100,Math.max(0,v));
+  });
+
+  const now = new Date();
+  const ts = now.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  let changes = 0;
+  MODULES.forEach(mod => COLS.forEach(col => {
+    const prev = editSnapshot[mod][col.key], curr = data[mod][col.key];
+    if (prev !== curr) { changes++; updateLog.unshift({ts, mod, col:col.label, from:prev, to:curr}); }
+  }));
+
+  editMode = false;
+  editSnapshot = null;
+  document.getElementById('editBtn').style.display   = 'flex';
+  document.getElementById('saveBtn').style.display   = 'none';
+  document.getElementById('cancelBtn').style.display = 'none';
+  document.getElementById('editBadge').style.display = 'none';
+  document.getElementById('bulkBar').style.display   = 'none';
+
+  const savedTs = now.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('lastSaved').textContent = `Last saved: ${savedTs}`;
+
+  renderTable();
+  renderLog();
+  showToast(changes > 0 ? `Saved — ${changes} field${changes>1?'s':''} updated` : 'Saved — no changes');
+}
+
+/* ── Log ── */
+function renderLog() {
+  const el = document.getElementById('logEntries');
+  if (!updateLog.length) { el.innerHTML = '<div class="log-empty">No updates logged yet.</div>'; return; }
+  el.innerHTML = updateLog.map(e => {
+    const fStr = e.from===null?'—':e.from+'%', tStr = e.to===null?'—':e.to+'%';
+    const s = pctStyle(e.to);
+    return `<div class="log-entry"><div class="log-ts">${e.ts}</div><div class="log-mod">${e.mod}</div><div class="log-col">${e.col}</div><div class="log-from">${fStr}</div><div class="log-to" style="color:${e.to===null?'#94A3B8':s.bar}">${tStr}</div></div>`;
+  }).join('');
+}
+function toggleLog() {
+  const p = document.getElementById('logPanel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+  if (p.style.display==='block') renderLog();
+}
+
+/* ── Toast ── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+renderTable();
+</script>
+</body>
+</html>
