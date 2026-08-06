@@ -555,28 +555,61 @@ function showToast(msg) {
 loadFromDB();
 </script>
 </body> 
-<div id="comments-section" style="max-width:700px; margin:24px auto; padding:20px; background:#fff; border-radius:12px; border:1px solid #CBD5E1;">
-  <h3 style="font-size:16px; font-weight:700; margin-bottom:12px; color:#0F172A;">💬 Leave a comment</h3>
+<button id="fab-btn" aria-label="Open feedback" style="position:fixed; bottom:24px; right:24px; z-index:500; background:#6366F1; color:#fff; border:none; padding:12px 20px; border-radius:99px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 6px 20px rgba(99,102,241,.35); display:flex; align-items:center; gap:8px; transition:all .2s;">
+  <span style="font-size:16px;">💬</span> Feedback
+</button>
 
-  <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
-    <input id="comment-name" type="text" placeholder="Your name" style="padding:8px 12px; border:1px solid #CBD5E1; border-radius:6px; font-size:13px; font-family:inherit;" />
-    <textarea id="comment-message" placeholder="Your comment..." rows="3" style="padding:8px 12px; border:1px solid #CBD5E1; border-radius:6px; font-size:13px; font-family:inherit; resize:vertical;"></textarea>
-    <button id="comment-submit" style="padding:8px 16px; background:#6366F1; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; align-self:flex-start;">Post comment</button>
+<div id="fab-panel" style="position:fixed; bottom:80px; right:24px; z-index:499; width:380px; max-width:calc(100vw - 48px); max-height:calc(100vh - 120px); background:#fff; border-radius:14px; border:1px solid #CBD5E1; box-shadow:0 20px 50px rgba(15,31,61,.25); display:none; flex-direction:column; overflow:hidden;">
+
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #E2E8F0;">
+    <span style="font-size:15px; font-weight:700; color:#0F172A;">Share your thoughts</span>
+    <button id="fab-close" aria-label="Close" style="background:none; border:none; font-size:20px; color:#94A3B8; cursor:pointer; padding:0; line-height:1;">×</button>
   </div>
 
-  <p id="comment-status" style="font-size:12px; color:#64748B; margin-bottom:12px; min-height:16px;"></p>
+  <div style="display:flex; border-bottom:1px solid #E2E8F0;">
+    <button id="tab-nps" class="fab-tab fab-tab-active" style="flex:1; padding:10px; background:none; border:none; font-size:13px; font-weight:600; color:#6366F1; cursor:pointer; border-bottom:2px solid #6366F1;">Rate us</button>
+    <button id="tab-comments" class="fab-tab" style="flex:1; padding:10px; background:none; border:none; font-size:13px; font-weight:600; color:#64748B; cursor:pointer; border-bottom:2px solid transparent;">Comments</button>
+  </div>
 
-  <div id="comments-list" style="border-top:1px solid #E2E8F0; padding-top:12px;">
-    <p style="font-size:12px; color:#94A3B8;">Loading comments...</p>
+  <div style="flex:1; overflow-y:auto; padding:16px 18px;">
+
+    <div id="pane-nps">
+      <p style="font-size:13px; color:#334155; margin-bottom:4px; font-weight:600;">How likely are you to recommend InsightAccess?</p>
+      <p style="font-size:11px; color:#64748B; margin-bottom:12px;">0 = not at all · 10 = extremely likely</p>
+      <div id="nps-buttons" style="display:flex; gap:3px; flex-wrap:wrap; margin-bottom:12px;"></div>
+      <textarea id="nps-comment" placeholder="Optional: tell us why" rows="2" style="width:100%; padding:8px 10px; border:1px solid #CBD5E1; border-radius:6px; font-size:12px; font-family:inherit; resize:vertical; margin-bottom:10px;"></textarea>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button id="nps-submit" disabled style="padding:8px 14px; background:#6366F1; color:#fff; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; opacity:.5;">Submit rating</button>
+        <span id="nps-status" style="font-size:11px; color:#64748B;"></span>
+      </div>
+    </div>
+
+    <div id="pane-comments" style="display:none;">
+      <input id="comment-name" type="text" placeholder="Your name" style="width:100%; padding:8px 10px; border:1px solid #CBD5E1; border-radius:6px; font-size:12px; font-family:inherit; margin-bottom:6px;" />
+      <textarea id="comment-message" placeholder="Your comment..." rows="3" style="width:100%; padding:8px 10px; border:1px solid #CBD5E1; border-radius:6px; font-size:12px; font-family:inherit; resize:vertical; margin-bottom:8px;"></textarea>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+        <button id="comment-submit" style="padding:8px 14px; background:#6366F1; color:#fff; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Post comment</button>
+        <span id="comment-status" style="font-size:11px; color:#64748B;"></span>
+      </div>
+      <div id="comments-list" style="border-top:1px solid #F1F5F9; padding-top:10px; max-height:220px; overflow-y:auto;">
+        <p style="font-size:11px; color:#94A3B8;">Loading...</p>
+      </div>
+    </div>
+
   </div>
 </div>
-<script>
+</div>
+
+</script>
+  <script>
 (async () => {
-  const nameEl = document.getElementById('comment-name');
-  const msgEl = document.getElementById('comment-message');
-  const btnEl = document.getElementById('comment-submit');
-  const statusEl = document.getElementById('comment-status');
-  const listEl = document.getElementById('comments-list');
+  const fabBtn = document.getElementById('fab-btn');
+  const fabPanel = document.getElementById('fab-panel');
+  const fabClose = document.getElementById('fab-close');
+  const tabNps = document.getElementById('tab-nps');
+  const tabComments = document.getElementById('tab-comments');
+  const paneNps = document.getElementById('pane-nps');
+  const paneComments = document.getElementById('pane-comments');
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, m => ({
@@ -584,69 +617,150 @@ loadFromDB();
     }[m]));
   }
 
-  async function loadComments() {
-    const { data, error } = await sb
-      .from('comments')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
+  // Toggle panel
+  let commentsLoaded = false;
+  fabBtn.addEventListener('click', () => {
+    const isOpen = fabPanel.style.display === 'flex';
+    fabPanel.style.display = isOpen ? 'none' : 'flex';
+    fabBtn.style.transform = isOpen ? 'scale(1)' : 'scale(0.95)';
+  });
+  fabClose.addEventListener('click', () => {
+    fabPanel.style.display = 'none';
+    fabBtn.style.transform = 'scale(1)';
+  });
+
+  // Tab switching
+  function switchTab(which) {
+    if (which === 'nps') {
+      tabNps.style.color = '#6366F1';
+      tabNps.style.borderBottom = '2px solid #6366F1';
+      tabComments.style.color = '#64748B';
+      tabComments.style.borderBottom = '2px solid transparent';
+      paneNps.style.display = 'block';
+      paneComments.style.display = 'none';
+    } else {
+      tabComments.style.color = '#6366F1';
+      tabComments.style.borderBottom = '2px solid #6366F1';
+      tabNps.style.color = '#64748B';
+      tabNps.style.borderBottom = '2px solid transparent';
+      paneNps.style.display = 'none';
+      paneComments.style.display = 'block';
+      if (!commentsLoaded) { loadComments(); commentsLoaded = true; }
+    }
+  }
+  tabNps.addEventListener('click', () => switchTab('nps'));
+  tabComments.addEventListener('click', () => switchTab('comments'));
+
+  // ========== NPS ==========
+  const npsButtonsEl = document.getElementById('nps-buttons');
+  const npsCommentEl = document.getElementById('nps-comment');
+  const npsSubmit = document.getElementById('nps-submit');
+  const npsStatus = document.getElementById('nps-status');
+  let selectedScore = null;
+
+  for (let i = 0; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.textContent = i;
+    let bg = '#FEE2E2', color = '#7F1D1D';
+    if (i >= 7 && i <= 8) { bg = '#FEF3C7'; color = '#78350F'; }
+    if (i >= 9) { bg = '#D1FAE5'; color = '#065F46'; }
+    btn.style.cssText = `flex:1; min-width:26px; padding:8px 0; background:${bg}; color:${color}; border:2px solid transparent; border-radius:5px; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s;`;
+
+    btn.addEventListener('click', () => {
+      selectedScore = i;
+      npsButtonsEl.querySelectorAll('button').forEach(b => {
+        b.style.borderColor = 'transparent';
+        b.style.transform = 'scale(1)';
+      });
+      btn.style.borderColor = '#0F172A';
+      btn.style.transform = 'scale(1.1)';
+      npsSubmit.disabled = false;
+      npsSubmit.style.opacity = '1';
+      npsStatus.textContent = '';
+    });
+    npsButtonsEl.appendChild(btn);
+  }
+
+  npsSubmit.addEventListener('click', async () => {
+    if (selectedScore === null) return;
+    npsSubmit.disabled = true;
+    npsStatus.textContent = 'Submitting...';
+    npsStatus.style.color = '#64748B';
+
+    const { error } = await sb.from('nps_responses').insert([{
+      score: selectedScore,
+      comment: npsCommentEl.value.trim() || null
+    }]);
 
     if (error) {
-      listEl.innerHTML = `<p style="color:#DC2626; font-size:12px;">Error loading: ${error.message}</p>`;
+      npsStatus.textContent = `Error: ${error.message}`;
+      npsStatus.style.color = '#DC2626';
+      npsSubmit.disabled = false;
       return;
     }
+    npsStatus.textContent = '✅ Thank you!';
+    npsStatus.style.color = '#16A34A';
+    npsCommentEl.value = '';
+    selectedScore = null;
+    npsButtonsEl.querySelectorAll('button').forEach(b => {
+      b.style.borderColor = 'transparent';
+      b.style.transform = 'scale(1)';
+    });
+    npsSubmit.style.opacity = '.5';
+  });
 
+  // ========== COMMENTS ==========
+  const cNameEl = document.getElementById('comment-name');
+  const cMsgEl = document.getElementById('comment-message');
+  const cBtnEl = document.getElementById('comment-submit');
+  const cStatusEl = document.getElementById('comment-status');
+  const cListEl = document.getElementById('comments-list');
+
+  async function loadComments() {
+    const { data, error } = await sb.from('comments').select('*').order('created_at', { ascending: false }).limit(20);
+    if (error) {
+      cListEl.innerHTML = `<p style="color:#DC2626; font-size:11px;">Error: ${error.message}</p>`;
+      return;
+    }
     if (!data.length) {
-      listEl.innerHTML = '<p style="font-size:12px; color:#94A3B8;">No comments yet. Be the first!</p>';
+      cListEl.innerHTML = '<p style="font-size:11px; color:#94A3B8;">No comments yet. Be the first!</p>';
       return;
     }
-
-    listEl.innerHTML = data.map(c => `
-      <div style="padding:10px 0; border-bottom:1px solid #F1F5F9;">
-        <div style="font-weight:600; font-size:13px; color:#0F172A;">${escapeHtml(c.name || 'Anonymous')}</div>
-        <div style="font-size:13px; color:#334155; margin:4px 0; white-space:pre-wrap;">${escapeHtml(c.message)}</div>
-        <div style="font-size:11px; color:#94A3B8;">${new Date(c.created_at).toLocaleString('en-MY')}</div>
+    cListEl.innerHTML = data.map(c => `
+      <div style="padding:8px 0; border-bottom:1px solid #F1F5F9;">
+        <div style="font-weight:600; font-size:12px; color:#0F172A;">${escapeHtml(c.name || 'Anonymous')}</div>
+        <div style="font-size:12px; color:#334155; margin:3px 0; white-space:pre-wrap;">${escapeHtml(c.message)}</div>
+        <div style="font-size:10px; color:#94A3B8;">${new Date(c.created_at).toLocaleString('en-MY')}</div>
       </div>
     `).join('');
   }
 
-  btnEl.addEventListener('click', async () => {
-    const name = nameEl.value.trim();
-    const message = msgEl.value.trim();
-
+  cBtnEl.addEventListener('click', async () => {
+    const name = cNameEl.value.trim();
+    const message = cMsgEl.value.trim();
     if (!name || !message) {
-      statusEl.textContent = 'Please fill in both name and comment.';
-      statusEl.style.color = '#DC2626';
+      cStatusEl.textContent = 'Fill in both fields.';
+      cStatusEl.style.color = '#DC2626';
       return;
     }
-
-    btnEl.disabled = true;
-    statusEl.textContent = 'Posting...';
-    statusEl.style.color = '#64748B';
-
-    const { error } = await sb
-      .from('comments')
-      .insert([{ name, message }]);
-
-    btnEl.disabled = false;
-
+    cBtnEl.disabled = true;
+    cStatusEl.textContent = 'Posting...';
+    cStatusEl.style.color = '#64748B';
+    const { error } = await sb.from('comments').insert([{ name, message }]);
+    cBtnEl.disabled = false;
     if (error) {
-      statusEl.textContent = `Error: ${error.message}`;
-      statusEl.style.color = '#DC2626';
+      cStatusEl.textContent = `Error: ${error.message}`;
+      cStatusEl.style.color = '#DC2626';
       return;
     }
-
-    statusEl.textContent = '✅ Comment posted!';
-    statusEl.style.color = '#16A34A';
-    nameEl.value = '';
-    msgEl.value = '';
+    cStatusEl.textContent = '✅ Posted!';
+    cStatusEl.style.color = '#16A34A';
+    cNameEl.value = '';
+    cMsgEl.value = '';
     loadComments();
   });
-
-  loadComments();
 })();
 </script>
-  
     <script>
 (async () => {
   const el = document.getElementById('holiday-badge');
