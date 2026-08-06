@@ -555,6 +555,98 @@ function showToast(msg) {
 loadFromDB();
 </script>
 </body> 
+<div id="comments-section" style="max-width:700px; margin:24px auto; padding:20px; background:#fff; border-radius:12px; border:1px solid #CBD5E1;">
+  <h3 style="font-size:16px; font-weight:700; margin-bottom:12px; color:#0F172A;">💬 Leave a comment</h3>
+
+  <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+    <input id="comment-name" type="text" placeholder="Your name" style="padding:8px 12px; border:1px solid #CBD5E1; border-radius:6px; font-size:13px; font-family:inherit;" />
+    <textarea id="comment-message" placeholder="Your comment..." rows="3" style="padding:8px 12px; border:1px solid #CBD5E1; border-radius:6px; font-size:13px; font-family:inherit; resize:vertical;"></textarea>
+    <button id="comment-submit" style="padding:8px 16px; background:#6366F1; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; align-self:flex-start;">Post comment</button>
+  </div>
+
+  <p id="comment-status" style="font-size:12px; color:#64748B; margin-bottom:12px; min-height:16px;"></p>
+
+  <div id="comments-list" style="border-top:1px solid #E2E8F0; padding-top:12px;">
+    <p style="font-size:12px; color:#94A3B8;">Loading comments...</p>
+  </div>
+</div>
+<script>
+(async () => {
+  const nameEl = document.getElementById('comment-name');
+  const msgEl = document.getElementById('comment-message');
+  const btnEl = document.getElementById('comment-submit');
+  const statusEl = document.getElementById('comment-status');
+  const listEl = document.getElementById('comments-list');
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+  }
+
+  async function loadComments() {
+    const { data, error } = await sb
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      listEl.innerHTML = `<p style="color:#DC2626; font-size:12px;">Error loading: ${error.message}</p>`;
+      return;
+    }
+
+    if (!data.length) {
+      listEl.innerHTML = '<p style="font-size:12px; color:#94A3B8;">No comments yet. Be the first!</p>';
+      return;
+    }
+
+    listEl.innerHTML = data.map(c => `
+      <div style="padding:10px 0; border-bottom:1px solid #F1F5F9;">
+        <div style="font-weight:600; font-size:13px; color:#0F172A;">${escapeHtml(c.name || 'Anonymous')}</div>
+        <div style="font-size:13px; color:#334155; margin:4px 0; white-space:pre-wrap;">${escapeHtml(c.message)}</div>
+        <div style="font-size:11px; color:#94A3B8;">${new Date(c.created_at).toLocaleString('en-MY')}</div>
+      </div>
+    `).join('');
+  }
+
+  btnEl.addEventListener('click', async () => {
+    const name = nameEl.value.trim();
+    const message = msgEl.value.trim();
+
+    if (!name || !message) {
+      statusEl.textContent = 'Please fill in both name and comment.';
+      statusEl.style.color = '#DC2626';
+      return;
+    }
+
+    btnEl.disabled = true;
+    statusEl.textContent = 'Posting...';
+    statusEl.style.color = '#64748B';
+
+    const { error } = await sb
+      .from('comments')
+      .insert([{ name, message }]);
+
+    btnEl.disabled = false;
+
+    if (error) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.style.color = '#DC2626';
+      return;
+    }
+
+    statusEl.textContent = '✅ Comment posted!';
+    statusEl.style.color = '#16A34A';
+    nameEl.value = '';
+    msgEl.value = '';
+    loadComments();
+  });
+
+  loadComments();
+})();
+</script>
+  
     <script>
 (async () => {
   const el = document.getElementById('holiday-badge');
