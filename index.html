@@ -117,49 +117,46 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 .loading-spinner{width:36px;height:36px;border:3px solid #334155;border-top-color:#6366F1;border-radius:50%;animation:spin .7s linear infinite}
 .loading-text{color:#fff;font-size:14px;font-weight:500}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+  .holiday-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:5px 12px;border-radius:99px;border:1px solid transparent;white-space:nowrap}
+.holiday-pill .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.holiday-pill .sub{font-weight:400;opacity:.75;font-size:10px}
+.holiday-working{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:#fff}
+.holiday-working .dot{background:#22C55E}
+.holiday-off{background:rgba(239,159,39,.15);border-color:rgba(239,159,39,.4);color:#FAC775}
+.holiday-loading{background:rgba(255,255,255,.05);color:#94A3B8;border-color:rgba(255,255,255,.1)}
 </style>
 </head>
-<body>
-
-<div id="holiday-checker" style="border:1px solid #ddd; padding:16px; border-radius:8px; max-width:400px; font-family:sans-serif;">
-  <h3>🇲🇾 Malaysia Public Holiday Checker (Kuala Lumpur)</h3>
-  <label for="holiday-date">Pick a date:</label>
-  <input type="date" id="holiday-date" />
-  <button id="holiday-check-btn" style="margin-left:8px;">Check</button>
-  <p id="holiday-result" style="margin-top:12px; font-weight:bold;"></p>
-</div>
+<body> 
   <script>
-  document.getElementById('holiday-check-btn').addEventListener('click', async () => {
-    const date = document.getElementById('holiday-date').value;
-    const resultEl = document.getElementById('holiday-result');
+(async () => {
+  const el = document.getElementById('holiday-badge');
+  if (!el) return;
 
-    if (!date) {
-      resultEl.textContent = 'Please pick a date first.';
-      return;
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  const shortDate = today.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  try {
+    const res = await fetch(`https://malaysia-holiday.dydxsoft.my/api/v1/holidays/check?date=${dateStr}&state_code=KUL`);
+    const data = await res.json();
+
+    if (data.is_holiday || data.isHoliday) {
+      const name = data.name || data.holiday_name || 'Public holiday';
+      el.className = 'holiday-pill holiday-off';
+      el.innerHTML = `🎉 <span>${name}</span> <span class="sub">· Public holiday</span>`;
+    } else {
+      el.className = 'holiday-pill holiday-working';
+      el.innerHTML = `<span class="dot"></span> Working day <span class="sub">· ${shortDate}</span>`;
     }
-
-    resultEl.textContent = 'Checking...';
-
-    try {
-      const url = `https://malaysia-holiday.dydxsoft.my/api/v1/holidays/check?date=${date}&state_code=KUL`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      // The API returns something like { is_holiday: true, name: "Merdeka Day", ... }
-      // We'll display it flexibly in case the field names differ:
-      if (data.is_holiday || data.isHoliday) {
-        const name = data.name || data.holiday_name || 'Public Holiday';
-        resultEl.textContent = `✅ ${date} is a public holiday: ${name}`;
-        resultEl.style.color = 'green';
-      } else {
-        resultEl.textContent = `❌ ${date} is NOT a public holiday in KL.`;
-        resultEl.style.color = 'gray';
-      }
-    } catch (err) {
-      resultEl.textContent = `Error: ${err.message}`;
-      resultEl.style.color = 'red';
-    }
-  });
+  } catch (err) {
+    el.className = 'holiday-pill holiday-loading';
+    el.textContent = '🇲🇾 KL';
+  }
+})();
 </script>
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
