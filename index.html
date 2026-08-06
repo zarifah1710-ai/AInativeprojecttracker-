@@ -121,6 +121,46 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 </head>
 <body>
 
+<div id="holiday-checker" style="border:1px solid #ddd; padding:16px; border-radius:8px; max-width:400px; font-family:sans-serif;">
+  <h3>🇲🇾 Malaysia Public Holiday Checker (Kuala Lumpur)</h3>
+  <label for="holiday-date">Pick a date:</label>
+  <input type="date" id="holiday-date" />
+  <button id="holiday-check-btn" style="margin-left:8px;">Check</button>
+  <p id="holiday-result" style="margin-top:12px; font-weight:bold;"></p>
+</div>
+  <script>
+  document.getElementById('holiday-check-btn').addEventListener('click', async () => {
+    const date = document.getElementById('holiday-date').value;
+    const resultEl = document.getElementById('holiday-result');
+
+    if (!date) {
+      resultEl.textContent = 'Please pick a date first.';
+      return;
+    }
+
+    resultEl.textContent = 'Checking...';
+
+    try {
+      const url = `https://malaysia-holiday.dydxsoft.my/api/v1/holidays/check?date=${date}&state_code=KUL`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      // The API returns something like { is_holiday: true, name: "Merdeka Day", ... }
+      // We'll display it flexibly in case the field names differ:
+      if (data.is_holiday || data.isHoliday) {
+        const name = data.name || data.holiday_name || 'Public Holiday';
+        resultEl.textContent = `✅ ${date} is a public holiday: ${name}`;
+        resultEl.style.color = 'green';
+      } else {
+        resultEl.textContent = `❌ ${date} is NOT a public holiday in KL.`;
+        resultEl.style.color = 'gray';
+      }
+    } catch (err) {
+      resultEl.textContent = `Error: ${err.message}`;
+      resultEl.style.color = 'red';
+    }
+  });
+</script>
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
   <div class="loading-text">Loading tracker data...</div>
