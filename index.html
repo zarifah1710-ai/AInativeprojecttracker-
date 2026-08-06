@@ -126,6 +126,11 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 .holiday-off{background:rgba(239,159,39,.15);border-color:rgba(239,159,39,.4);color:#FAC775}
 .holiday-loading{background:rgba(255,255,255,.05);color:#94A3B8;border-color:rgba(255,255,255,.1)}
 </style>
+.auth-btn{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:5px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;transition:all .15s}
+.auth-btn:hover{background:rgba(255,255,255,.15)}
+.auth-btn svg{width:12px;height:12px}
+.auth-user{font-size:11px;color:#94A3B8;padding:5px 10px;background:rgba(255,255,255,.05);border-radius:99px}
+.readonly-banner{background:#FEF3C7;color:#78350F;padding:8px 24px;font-size:12px;text-align:center;font-weight:500}
 </head>
 <body>
 <div class="loading-overlay" id="loadingOverlay">
@@ -138,6 +143,7 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
     <span class="topbar-sub">Cross-team progress tracker · V2 delivery</span>
   </div>
   <div class="topbar-right">
+    <span id="auth-area" style="display:flex; align-items:center; gap:8px;"></span>
     <span id="holiday-badge" class="holiday-pill holiday-loading">Checking today…</span>
     <span class="last-saved" id="lastSaved"></span>
     <span class="sync-badge sync-loading" id="syncBadge">Connecting...</span>
@@ -156,6 +162,9 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
       Edit progress
     </button>
   </div>
+</div>
+  <div id="readonly-banner" class="readonly-banner" style="display:none;">
+  🔒 You're viewing in read-only mode. Sign in with Google to edit progress.
 </div>
 
 <div class="bulk-bar" id="bulkBar" style="display:none">
@@ -758,6 +767,66 @@ loadFromDB();
     cNameEl.value = '';
     cMsgEl.value = '';
     loadComments();
+  });
+})();
+</script>
+  <script>
+(async () => {
+  const authArea = document.getElementById('auth-area');
+
+  function renderLoggedOut() {
+    authArea.innerHTML = `
+      <button id="signin-btn" class="auth-btn" title="Sign in with Google">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Sign in
+      </button>
+    `;
+    document.getElementById('signin-btn').addEventListener('click', signIn);
+  }
+
+  function renderLoggedIn(user) {
+    const email = user.email || 'User';
+    const short = email.length > 24 ? email.slice(0, 22) + '…' : email;
+    authArea.innerHTML = `
+      <span class="auth-user" title="${email}">👤 ${short}</span>
+      <button id="signout-btn" class="auth-btn">Sign out</button>
+    `;
+    document.getElementById('signout-btn').addEventListener('click', signOut);
+  }
+
+  async function signIn() {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href }
+    });
+    if (error) alert('Sign-in error: ' + error.message);
+  }
+
+  async function signOut() {
+    await sb.auth.signOut();
+    window.location.reload();
+  }
+
+  function applyAuthState(user) {
+    const editBtn = document.getElementById('editBtn');
+    const banner = document.getElementById('readonly-banner');
+
+    if (user) {
+      renderLoggedIn(user);
+      if (editBtn) editBtn.style.display = '';
+      if (banner) banner.style.display = 'none';
+    } else {
+      renderLoggedOut();
+      if (editBtn) editBtn.style.display = 'none';
+      if (banner) banner.style.display = 'block';
+    }
+  }
+
+  const { data: { session } } = await sb.auth.getSession();
+  applyAuthState(session?.user || null);
+
+  sb.auth.onAuthStateChange((_event, session) => {
+    applyAuthState(session?.user || null);
   });
 })();
 </script>
