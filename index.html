@@ -127,48 +127,18 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 .holiday-loading{background:rgba(255,255,255,.05);color:#94A3B8;border-color:rgba(255,255,255,.1)}
 </style>
 </head>
-<body> 
-  <script>
-(async () => {
-  const el = document.getElementById('holiday-badge');
-  if (!el) return;
-
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  const dateStr = `${yyyy}-${mm}-${dd}`;
-  const shortDate = today.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
-
-  try {
-    const res = await fetch(`https://malaysia-holiday.dydxsoft.my/api/v1/holidays/check?date=${dateStr}&state_code=KUL`);
-    const data = await res.json();
-
-    if (data.is_holiday || data.isHoliday) {
-      const name = data.name || data.holiday_name || 'Public holiday';
-      el.className = 'holiday-pill holiday-off';
-      el.innerHTML = `🎉 <span>${name}</span> <span class="sub">· Public holiday</span>`;
-    } else {
-      el.className = 'holiday-pill holiday-working';
-      el.innerHTML = `<span class="dot"></span> Working day <span class="sub">· ${shortDate}</span>`;
-    }
-  } catch (err) {
-    el.className = 'holiday-pill holiday-loading';
-    el.textContent = '🇲🇾 KL';
-  }
-})();
-</script>
+<body>
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
   <div class="loading-text">Loading tracker data...</div>
 </div>
-
 <div class="topbar">
   <div class="topbar-left">
     <span class="topbar-title">InsightAccess</span>
     <span class="topbar-sub">Cross-team progress tracker · V2 delivery</span>
   </div>
   <div class="topbar-right">
+    <span id="holiday-badge" class="holiday-pill holiday-loading">Checking today…</span>
     <span class="last-saved" id="lastSaved"></span>
     <span class="sync-badge sync-loading" id="syncBadge">Connecting...</span>
     <span class="edit-badge" id="editBadge" style="display:none">● Editing</span>
@@ -584,5 +554,35 @@ function showToast(msg) {
 
 loadFromDB();
 </script>
-</body>
+</body> 
+    <script>
+(async () => {
+  const el = document.getElementById('holiday-badge');
+  if (!el) return;
+
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  const shortDate = today.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  try {
+    const res = await fetch(`https://malaysia-holiday.dydxsoft.my/api/v1/holidays/check?date=${dateStr}&state_code=KUL`);
+    const data = await res.json();
+
+    if (data.is_holiday || data.isHoliday) {
+      const name = data.name || data.holiday_name || 'Public holiday';
+      el.className = 'holiday-pill holiday-off';
+      el.innerHTML = `🎉 <span>${name}</span> <span class="sub">· Public holiday</span>`;
+    } else {
+      el.className = 'holiday-pill holiday-working';
+      el.innerHTML = `<span class="dot"></span> Working day <span class="sub">· ${shortDate}</span>`;
+    }
+  } catch (err) {
+    el.className = 'holiday-pill holiday-loading';
+    el.textContent = '🇲🇾 KL';
+  }
+})();
+</script>
 </html>
