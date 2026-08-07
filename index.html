@@ -62,6 +62,14 @@ table{border-collapse:collapse;width:100%;min-width:1100px;background:#fff;borde
 .hdr-sub.logic{background:var(--logic-light);color:var(--logic-text)}
 .hdr-sub.qa{background:var(--qa-light);color:var(--qa-text)}
 .hdr-module{background:var(--navy);color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px;text-align:left;padding:8px 14px;border-right:2px solid var(--border-strong);vertical-align:bottom}
+
+/* Rename fields shown in the header while editing. They inherit the
+   colour of the band they sit in, so the header keeps its look. */
+.hdr-input{width:100%;font-family:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-align:center;text-transform:inherit;color:inherit;background:rgba(255,255,255,.15);border:1px dashed currentColor;border-radius:4px;padding:2px 4px;outline:none}
+.hdr-input:focus{background:rgba(255,255,255,.3);border-style:solid;box-shadow:0 0 0 2px rgba(99,102,241,.35)}
+.hdr-sub .hdr-input{background:rgba(255,255,255,.6);border-color:currentColor}
+.hdr-sub .hdr-input:focus{background:#fff}
+.hdr-hint{font-size:10px;font-weight:400;opacity:.8;display:block;margin-top:3px;letter-spacing:0;text-transform:none}
 tr.data-row:nth-child(odd) td{background:#fff}
 tr.data-row:nth-child(even) td{background:var(--row-alt)}
 tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
@@ -161,7 +169,7 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
     </button>
     <button class="btn btn-edit" id="editBtn" onclick="enterEdit()" style="display:none">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      Edit progress
+      Edit tracker
     </button>
   </div>
 </div>
@@ -174,47 +182,15 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
   <div class="bulk-sep"></div>
   <div class="bulk-group">
     <span class="bulk-group-label">Modules:</span>
-    <select class="bulk-sel" id="bulkModSel">
-      <option value="__all__">All 22 modules</option>
-      <option value="Super Admin">Super Admin</option>
-      <option value="Onboarding">Onboarding</option>
-      <option value="Talent Acquisition">Talent Acquisition</option>
-      <option value="JD Management">JD Management</option>
-      <option value="Org Chart">Org Chart</option>
-      <option value="Assessment">Assessment</option>
-      <option value="Strategy">Strategy</option>
-      <option value="Skills">Skills</option>
-      <option value="BSC">BSC</option>
-      <option value="IDP">IDP</option>
-      <option value="Career Pathing">Career Pathing</option>
-      <option value="Succession">Succession</option>
-      <option value="Performance">Performance</option>
-      <option value="Survey Management">Survey Management</option>
-      <option value="HRIS">HRIS</option>
-      <option value="Financial">Financial</option>
-      <option value="AI Token">AI Token</option>
-      <option value="Metric Library">Metric Library</option>
-      <option value="Workflow Engine">Workflow Engine</option>
-      <option value="AI Chatbot">AI Chatbot</option>
-      <option value="Subsidiaries">Subsidiaries</option>
-      <option value="Integrations">Integrations</option>
-    </select>
+    <!-- Options are filled in by buildBulkSelects(). Leaving them
+         hardcoded meant a renamed column still showed its old name
+         here, and the count "All 22 modules" could go stale. -->
+    <select class="bulk-sel" id="bulkModSel" aria-label="Modules to bulk update"></select>
   </div>
   <div class="bulk-sep"></div>
   <div class="bulk-group">
     <span class="bulk-group-label">Column:</span>
-    <select class="bulk-sel" id="bulkColSel">
-      <option value="__all__">All columns</option>
-      <option value="build">Build</option>
-      <option value="define">Define</option>
-      <option value="req">Requirements</option>
-      <option value="iterate">Iterate</option>
-      <option value="dep">Dependency</option>
-      <option value="design">Design</option>
-      <option value="qacheck">QA Check</option>
-      <option value="bugfix">Bug Fix</option>
-      <option value="handover">Handover</option>
-    </select>
+    <select class="bulk-sel" id="bulkColSel" aria-label="Column to bulk update"></select>
   </div>
   <div class="bulk-sep"></div>
   <div class="bulk-group">
@@ -233,25 +209,11 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 
 <div class="wrapper">
 <table id="mainTable">
-  <thead>
-    <tr>
-      <th class="hdr-module" rowspan="2">Module</th>
-      <th class="hdr-stage build" colspan="2">BUILD</th>
-      <th class="hdr-stage logic" colspan="4">LOGIC &amp; DESIGN</th>
-      <th class="hdr-stage qa" colspan="3">QA</th>
-    </tr>
-    <tr>
-      <th class="hdr-sub build">Build</th>
-      <th class="hdr-sub build">Define</th>
-      <th class="hdr-sub logic cell-stage-sep">Requirements</th>
-      <th class="hdr-sub logic">Iterate</th>
-      <th class="hdr-sub logic">Dependency</th>
-      <th class="hdr-sub logic">Design</th>
-      <th class="hdr-sub qa cell-stage-sep">QA Check</th>
-      <th class="hdr-sub qa">Bug Fix</th>
-      <th class="hdr-sub qa">Handover</th>
-    </tr>
-  </thead>
+  <!-- The header used to be typed out here, with colspan="2", "4" and
+       "3" counted by hand to match the 9 columns below. It is now built
+       by renderHead() from the stages and columns tables, and those
+       colspans are calculated. -->
+  <thead id="tableHead"></thead>
   <tbody id="tableBody"></tbody>
 </table>
 </div>
@@ -285,16 +247,42 @@ const SUPABASE_URL = 'https://kcjslemxrwtqvprdphsr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjanNsZW14cnd0cXZwcmRwaHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMDU4MTgsImV4cCI6MjA5NzY4MTgxOH0.Tw5EV8SK3nq8DEj8UBPTsONStcNuaOsuvgyMtPpupSU';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const COLS = [
-  {key:'build',   label:'Build',        group:'build'},
-  {key:'define',  label:'Define',       group:'build'},
-  {key:'req',     label:'Requirements', group:'logic', sep:true},
-  {key:'iterate', label:'Iterate',      group:'logic'},
-  {key:'dep',     label:'Dependency',   group:'logic'},
-  {key:'design',  label:'Design',       group:'logic'},
-  {key:'qacheck', label:'QA Check',     group:'qa',   sep:true},
-  {key:'bugfix',  label:'Bug Fix',      group:'qa'},
-  {key:'handover',label:'Handover',     group:'qa'},
+/* ── Grid structure ──
+   COLS and STAGES used to be a fixed list typed in here. They are now
+   loaded from the database by loadStructure(), which is what makes the
+   header renameable. The shape of each COLS entry is unchanged, so all
+   the existing rendering code still works:
+
+     {key, label, group, sep}
+
+   key    the stable internal key ('build', 'qacheck'...). Progress
+          values are stored against this and it NEVER changes on rename.
+   label  the editable display name shown in the header.
+   group  which colour scheme to use: 'build', 'logic' or 'qa'.
+   sep    true for the first column of a stage, which draws the thicker
+          dividing line. Calculated, not stored. */
+let COLS   = [];
+let STAGES = [];
+let TRACKER_ID = null;
+
+/* The default structure given to a brand new account. This creates
+   empty STRUCTURE only — never anyone's progress values. That is the
+   difference between this and the seedDB() function that was removed. */
+const STARTER_STAGES = [
+  {name:'BUILD',          color_key:'build', position:0},
+  {name:'LOGIC & DESIGN', color_key:'logic', position:1},
+  {name:'QA',             color_key:'qa',    position:2},
+];
+const STARTER_COLUMNS = [
+  {col_key:'build',    name:'Build',        stage:0, position:0},
+  {col_key:'define',   name:'Define',       stage:0, position:1},
+  {col_key:'req',      name:'Requirements', stage:1, position:2},
+  {col_key:'iterate',  name:'Iterate',      stage:1, position:3},
+  {col_key:'dep',      name:'Dependency',   stage:1, position:4},
+  {col_key:'design',   name:'Design',       stage:1, position:5},
+  {col_key:'qacheck',  name:'QA Check',     stage:2, position:6},
+  {col_key:'bugfix',   name:'Bug Fix',      stage:2, position:7},
+  {col_key:'handover', name:'Handover',     stage:2, position:8},
 ];
 
 const MODULES = [
@@ -340,11 +328,204 @@ function setSyncBadge(state, msg) {
   b.textContent = msg;
 }
 
+/* Escape text before putting it into HTML. Column names are typed by
+   the user, so a name containing < or " would otherwise break the page. */
+function escHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ── Load the grid structure (stage groups and columns) ── */
+async function loadStructure() {
+  const { data: trackers, error: tErr } =
+    await sb.from('trackers').select('*').order('position').limit(1);
+  if (tErr) throw tErr;
+
+  /* No tracker yet means a brand new account — give it the starter
+     structure so there is a header to look at. */
+  const tracker = (trackers && trackers[0]) || await createStarterStructure();
+  TRACKER_ID = tracker.id;
+
+  const [stageRes, colRes] = await Promise.all([
+    sb.from('stages').select('*').eq('tracker_id', TRACKER_ID).order('position'),
+    sb.from('columns').select('*').eq('tracker_id', TRACKER_ID).order('position'),
+  ]);
+  if (stageRes.error) throw stageRes.error;
+  if (colRes.error)   throw colRes.error;
+
+  STAGES = stageRes.data || [];
+
+  /* Sort columns by their stage's position first, then their own, so a
+     reordered stage band takes its columns with it. */
+  const stagePos = {};
+  STAGES.forEach(s => { stagePos[s.id] = s.position; });
+  const ordered = (colRes.data || []).slice().sort((a, b) =>
+    ((stagePos[a.stage_id] ?? 0) - (stagePos[b.stage_id] ?? 0)) || (a.position - b.position));
+
+  COLS = ordered.map((c, i) => {
+    const st = STAGES.find(s => s.id === c.stage_id);
+    return {
+      key:      c.col_key,
+      label:    c.name,
+      group:    st ? st.color_key : 'build',
+      stage_id: c.stage_id,
+      /* First column of a stage gets the thicker divider. */
+      sep:      i > 0 && ordered[i - 1].stage_id !== c.stage_id
+    };
+  });
+}
+
+/* In-memory fallback used only when the header tables can't be read.
+   TRACKER_ID stays null, which is how saveHeaderEdits() knows renames
+   cannot be persisted yet. */
+function useFallbackStructure() {
+  TRACKER_ID = null;
+  STAGES = STARTER_STAGES.map((s, i) => ({ ...s, id: 'fallback-' + i }));
+  COLS = STARTER_COLUMNS.map((c, i) => ({
+    key:      c.col_key,
+    label:    c.name,
+    group:    STARTER_STAGES[c.stage].color_key,
+    stage_id: 'fallback-' + c.stage,
+    sep:      i > 0 && STARTER_COLUMNS[i - 1].stage !== c.stage
+  }));
+}
+
+/* Create the starter structure for a new account. Structure only —
+   no progress values are ever written here. */
+async function createStarterStructure() {
+  const { data: tracker, error } = await sb.from('trackers')
+    .insert([{ user_id: currentUser.id, name: 'My Tracker', position: 0 }])
+    .select().single();
+  if (error) throw error;
+
+  const { data: stages, error: sErr } = await sb.from('stages')
+    .insert(STARTER_STAGES.map(s => ({ ...s, tracker_id: tracker.id, user_id: currentUser.id })))
+    .select();
+  if (sErr) throw sErr;
+
+  const stageIdByPosition = {};
+  stages.forEach(s => { stageIdByPosition[s.position] = s.id; });
+
+  const { error: cErr } = await sb.from('columns').insert(
+    STARTER_COLUMNS.map(c => ({
+      tracker_id: tracker.id,
+      user_id:    currentUser.id,
+      stage_id:   stageIdByPosition[c.stage],
+      col_key:    c.col_key,
+      name:       c.name,
+      position:   c.position
+    }))
+  );
+  if (cErr) throw cErr;
+
+  return tracker;
+}
+
+/* ── Build the table header from the structure ──
+   The stage band colspans are counted from how many columns sit in each
+   stage, rather than being typed in by hand as they were before. */
+function renderHead() {
+  const head = document.getElementById('tableHead');
+  if (!COLS.length) { head.innerHTML = ''; return; }
+
+  const bands = [];
+  COLS.forEach(col => {
+    const last = bands[bands.length - 1];
+    if (last && last.stage_id === col.stage_id) last.count++;
+    else bands.push({ stage_id: col.stage_id, count: 1 });
+  });
+
+  const stageRow = bands.map(b => {
+    const st = STAGES.find(s => s.id === b.stage_id) || { name: '', color_key: 'build', id: '' };
+    const inner = editMode
+      ? `<input class="hdr-input" type="text" maxlength="60" value="${escHtml(st.name)}"
+           data-stage-id="${escHtml(st.id)}" aria-label="Rename stage group ${escHtml(st.name)}">`
+      : escHtml(st.name);
+    return `<th class="hdr-stage ${st.color_key}" colspan="${b.count}">${inner}</th>`;
+  }).join('');
+
+  const subRow = COLS.map(col => {
+    const sep = col.sep ? ' cell-stage-sep' : '';
+    const inner = editMode
+      ? `<input class="hdr-input" type="text" maxlength="60" value="${escHtml(col.label)}"
+           data-col-key="${escHtml(col.key)}" aria-label="Rename column ${escHtml(col.label)}">`
+      : escHtml(col.label);
+    return `<th class="hdr-sub ${col.group}${sep}">${inner}</th>`;
+  }).join('');
+
+  const hint = editMode ? '<span class="hdr-hint">Type to rename headers</span>' : '';
+  head.innerHTML = `<tr><th class="hdr-module" rowspan="2">Module${hint}</th>${stageRow}</tr><tr>${subRow}</tr>`;
+}
+
+/* Bulk-update dropdowns are built from the live structure, so a renamed
+   column shows its new name here too. */
+function buildBulkSelects() {
+  document.getElementById('bulkModSel').innerHTML =
+    `<option value="__all__">All ${MODULES.length} modules</option>` +
+    MODULES.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+
+  document.getElementById('bulkColSel').innerHTML =
+    '<option value="__all__">All columns</option>' +
+    COLS.map(c => `<option value="${escHtml(c.key)}">${escHtml(c.label)}</option>`).join('');
+}
+
+/* ── Save any header renames ──
+   Only the display name is updated. col_key is never touched, which is
+   why renaming a column cannot detach it from its progress values. */
+async function saveHeaderEdits() {
+  /* No tracker means we're on the in-memory fallback, so there is
+     nothing to save to. */
+  if (!TRACKER_ID) return 0;
+
+  const stageUpdates = [];
+  document.querySelectorAll('.hdr-input[data-stage-id]').forEach(inp => {
+    const st = STAGES.find(s => s.id === inp.dataset.stageId);
+    const name = inp.value.trim();
+    /* A blank name is ignored rather than saved, so you can't end up
+       with an unlabelled header you can no longer find. */
+    if (st && name && name !== st.name) stageUpdates.push({ id: st.id, name });
+  });
+
+  const colUpdates = [];
+  document.querySelectorAll('.hdr-input[data-col-key]').forEach(inp => {
+    const col = COLS.find(c => c.key === inp.dataset.colKey);
+    const name = inp.value.trim();
+    if (col && name && name !== col.label) colUpdates.push({ key: col.key, name });
+  });
+
+  for (const u of stageUpdates) {
+    const { error } = await sb.from('stages').update({ name: u.name }).eq('id', u.id);
+    if (error) throw error;
+  }
+  for (const u of colUpdates) {
+    const { error } = await sb.from('columns').update({ name: u.name })
+      .eq('tracker_id', TRACKER_ID).eq('col_key', u.key);
+    if (error) throw error;
+  }
+
+  return stageUpdates.length + colUpdates.length;
+}
+
 /* ── Supabase load ──
    Only ever called AFTER the auth check has confirmed a session, so the
    database knows who is asking and hands back only that person's rows. */
 async function loadFromDB() {
   try {
+    /* Structure first: the grid cannot be built until we know what the
+       stage groups and columns actually are. */
+    try {
+      await loadStructure();
+    } catch (structErr) {
+      /* Safety net for deployment order. If 02-header-tables.sql hasn't
+         been run yet, these tables don't exist. Rather than showing a
+         blank grid, fall back to the built-in structure so the tracker
+         still works exactly as before — renames simply won't save until
+         the SQL is applied. */
+      console.error('Could not load header structure, using built-in defaults:', structErr);
+      useFallbackStructure();
+    }
+    buildBulkSelects();
+
     const { data: rows, error } = await sb.from('progress').select('*');
     if (error) throw error;
 
@@ -365,6 +546,7 @@ async function loadFromDB() {
   }
   document.getElementById('editBtn').style.display = 'flex';
   document.getElementById('loadingOverlay').style.display = 'none';
+  renderHead();
   renderTable();
 }
 
@@ -481,6 +663,7 @@ function enterEdit() {
   document.getElementById('cancelBtn').style.display = 'flex';
   document.getElementById('editBadge').style.display = 'inline';
   document.getElementById('bulkBar').style.display   = 'flex';
+  renderHead();   // swaps the header labels for rename fields
   renderTable();
 }
 
@@ -492,6 +675,9 @@ function cancelEdit() {
   document.getElementById('cancelBtn').style.display = 'none';
   document.getElementById('editBadge').style.display = 'none';
   document.getElementById('bulkBar').style.display   = 'none';
+  /* Header renames are discarded too — renderHead() redraws from STAGES
+     and COLS, which are only updated once a save succeeds. */
+  renderHead();
   renderTable();
   showToast('Changes discarded');
 }
@@ -519,10 +705,23 @@ async function saveChanges() {
       await saveToDB(changes.map(c => ({mod: c.mod, col: c.colKey, to: c.to})));
       changes.forEach(c => updateLog.unshift(c));
     }
+
+    /* Save any header renames, then reload the structure so COLS and
+       STAGES hold the new names. */
+    const renamed = await saveHeaderEdits();
+    if (renamed > 0) {
+      await loadStructure();
+      buildBulkSelects();
+    }
+
     setSyncBadge('sync-ok', '✓ Synced');
     const savedTs = now.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastSaved').textContent = `Last saved: ${savedTs}`;
-    showToast(changes.length > 0 ? `Saved & synced — ${changes.length} field${changes.length>1?'s':''} updated` : 'No changes to save');
+
+    const parts = [];
+    if (changes.length) parts.push(`${changes.length} field${changes.length > 1 ? 's' : ''}`);
+    if (renamed)        parts.push(`${renamed} header${renamed > 1 ? 's' : ''}`);
+    showToast(parts.length ? `Saved & synced — ${parts.join(' and ')} updated` : 'No changes to save');
   } catch(e) {
     setSyncBadge('sync-err', '✗ Save failed');
     showToast('Save failed — check connection');
@@ -537,6 +736,7 @@ async function saveChanges() {
   document.getElementById('cancelBtn').style.display = 'none';
   document.getElementById('editBadge').style.display = 'none';
   document.getElementById('bulkBar').style.display   = 'none';
+  renderHead();   // swaps rename fields back to plain labels
   renderTable();
   renderLog();
 }
