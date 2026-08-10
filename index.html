@@ -70,6 +70,10 @@ table{border-collapse:collapse;width:100%;min-width:1100px;background:#fff;borde
 .hdr-sub .hdr-input{background:rgba(255,255,255,.6);border-color:currentColor}
 .hdr-sub .hdr-input:focus{background:#fff}
 .hdr-hint{font-size:10px;font-weight:400;opacity:.8;display:block;margin-top:3px;letter-spacing:0;text-transform:none}
+
+/* Rename field for a module name, in the left-hand column. */
+.mod-input{width:100%;font-family:inherit;font-size:12px;font-weight:600;color:var(--text-primary);background:#fff;border:1.5px solid var(--edit-ring);border-radius:4px;padding:4px 6px;outline:none}
+.mod-input:focus{box-shadow:0 0 0 3px rgba(99,102,241,.2)}
 tr.data-row:nth-child(odd) td{background:#fff}
 tr.data-row:nth-child(even) td{background:var(--row-alt)}
 tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
@@ -285,7 +289,27 @@ const STARTER_COLUMNS = [
   {col_key:'handover', name:'Handover',     stage:2, position:8},
 ];
 
-const MODULES = [
+/* MODULES is now loaded from the database too. Each entry is:
+
+     {key, label}
+
+   key    the stable identifier progress rows are stored against
+          (progress.module). It NEVER changes on rename.
+   label  the editable display name shown down the left-hand side.
+
+   For existing modules the two start out identical — 'Onboarding' and
+   'Onboarding' — and only diverge once you rename one. */
+let MODULES = [];
+
+/* The heading above the module names. Editable, stored on the tracker. */
+let ROW_HEADER = 'Module';
+
+/* False when the modules table isn't available yet, in which case the
+   module names are shown as plain text rather than offering a rename
+   that couldn't be saved. */
+let MODULES_EDITABLE = false;
+
+const STARTER_MODULES = [
   'Super Admin','Onboarding','Talent Acquisition','JD Management',
   'Org Chart','Assessment','Strategy','Skills','BSC','IDP',
   'Career Pathing','Succession','Performance','Survey Management',
@@ -311,8 +335,9 @@ let currentUser = null;
 function blankGrid() {
   const grid = {};
   MODULES.forEach(mod => {
-    grid[mod] = {};
-    COLS.forEach(col => { grid[mod][col.key] = null; });
+    /* Keyed by module_key, which is what progress rows use. */
+    grid[mod.key] = {};
+    COLS.forEach(col => { grid[mod.key][col.key] = null; });
   });
   return grid;
 }
@@ -346,12 +371,32 @@ async function loadStructure() {
   const tracker = (trackers && trackers[0]) || await createStarterStructure();
   TRACKER_ID = tracker.id;
 
+  /* The heading above the module names. Older tracker rows created
+     before 03-modules.sql won't have this column, so fall back. */
+  ROW_HEADER = tracker.row_header_name || 'Module';
+
   const [stageRes, colRes] = await Promise.all([
     sb.from('stages').select('*').eq('tracker_id', TRACKER_ID).order('position'),
     sb.from('columns').select('*').eq('tracker_id', TRACKER_ID).order('position'),
   ]);
   if (stageRes.error) throw stageRes.error;
   if (colRes.error)   throw colRes.error;
+
+  /* Modules are fetched separately and allowed to fail on their own.
+     If 03-modules.sql hasn't been run yet, the table doesn't exist —
+     and that shouldn't drag the stage and column names, which DO exist,
+     back to the built-in defaults. */
+  const modRes = await sb.from('modules').select('*')
+    .eq('tracker_id', TRACKER_ID).order('position');
+
+  if (modRes.error || !(modRes.data || []).length) {
+    if (modRes.error) console.error('Modules unavailable, using built-in list:', modRes.error);
+    MODULES = STARTER_MODULES.map(name => ({ key: name, label: name }));
+    MODULES_EDITABLE = false;
+  } else {
+    MODULES = modRes.data.map(m => ({ key: m.module_key, label: m.name }));
+    MODULES_EDITABLE = true;
+  }
 
   STAGES = stageRes.data || [];
 
@@ -380,6 +425,9 @@ async function loadStructure() {
    cannot be persisted yet. */
 function useFallbackStructure() {
   TRACKER_ID = null;
+  ROW_HEADER = 'Module';
+  MODULES_EDITABLE = false;
+  MODULES = STARTER_MODULES.map(name => ({ key: name, label: name }));
   STAGES = STARTER_STAGES.map((s, i) => ({ ...s, id: 'fallback-' + i }));
   COLS = STARTER_COLUMNS.map((c, i) => ({
     key:      c.col_key,
@@ -418,6 +466,21 @@ async function createStarterStructure() {
   );
   if (cErr) throw cErr;
 
+  /* New accounts also get the starter module names, so the tracker is
+     usable straight away. Once add/delete lands, this becomes an empty
+     list with a "Create your first module" prompt instead — an empty
+     grid is only helpful once you can actually add rows to it. */
+  const { error: mErr } = await sb.from('modules').insert(
+    STARTER_MODULES.map((name, i) => ({
+      tracker_id: tracker.id,
+      user_id:    currentUser.id,
+      module_key: name,
+      name:       name,
+      position:   i
+    }))
+  );
+  if (mErr) throw mErr;
+
   return tracker;
 }
 
@@ -453,8 +516,14 @@ function renderHead() {
     return `<th class="hdr-sub ${col.group}${sep}">${inner}</th>`;
   }).join('');
 
-  const hint = editMode ? '<span class="hdr-hint">Type to rename headers</span>' : '';
-  head.innerHTML = `<tr><th class="hdr-module" rowspan="2">Module${hint}</th>${stageRow}</tr><tr>${subRow}</tr>`;
+  /* The "Module" heading itself is editable too. */
+  const moduleHdr = editMode
+    ? `<input class="hdr-input" type="text" maxlength="60" value="${escHtml(ROW_HEADER)}"
+         data-row-header="1" aria-label="Rename the module column heading">
+       <span class="hdr-hint">Type to rename any heading</span>`
+    : escHtml(ROW_HEADER);
+
+  head.innerHTML = `<tr><th class="hdr-module" rowspan="2">${moduleHdr}</th>${stageRow}</tr><tr>${subRow}</tr>`;
 }
 
 /* Bulk-update dropdowns are built from the live structure, so a renamed
@@ -462,7 +531,7 @@ function renderHead() {
 function buildBulkSelects() {
   document.getElementById('bulkModSel').innerHTML =
     `<option value="__all__">All ${MODULES.length} modules</option>` +
-    MODULES.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+    MODULES.map(m => `<option value="${escHtml(m.key)}">${escHtml(m.label)}</option>`).join('');
 
   document.getElementById('bulkColSel').innerHTML =
     '<option value="__all__">All columns</option>' +
@@ -493,6 +562,23 @@ async function saveHeaderEdits() {
     if (col && name && name !== col.label) colUpdates.push({ key: col.key, name });
   });
 
+  /* Module names — again, only `name` is written. module_key is left
+     alone, so the row keeps its progress values. */
+  const modUpdates = [];
+  document.querySelectorAll('.mod-input[data-module-key]').forEach(inp => {
+    const mod = MODULES.find(m => m.key === inp.dataset.moduleKey);
+    const name = inp.value.trim();
+    if (mod && name && name !== mod.label) modUpdates.push({ key: mod.key, name });
+  });
+
+  /* The "Module" heading, stored on the tracker. */
+  let headerUpdate = null;
+  const rowHdrInput = document.querySelector('.hdr-input[data-row-header]');
+  if (rowHdrInput) {
+    const name = rowHdrInput.value.trim();
+    if (name && name !== ROW_HEADER) headerUpdate = name;
+  }
+
   for (const u of stageUpdates) {
     const { error } = await sb.from('stages').update({ name: u.name }).eq('id', u.id);
     if (error) throw error;
@@ -502,8 +588,18 @@ async function saveHeaderEdits() {
       .eq('tracker_id', TRACKER_ID).eq('col_key', u.key);
     if (error) throw error;
   }
+  for (const u of modUpdates) {
+    const { error } = await sb.from('modules').update({ name: u.name })
+      .eq('tracker_id', TRACKER_ID).eq('module_key', u.key);
+    if (error) throw error;
+  }
+  if (headerUpdate) {
+    const { error } = await sb.from('trackers')
+      .update({ row_header_name: headerUpdate }).eq('id', TRACKER_ID);
+    if (error) throw error;
+  }
 
-  return stageUpdates.length + colUpdates.length;
+  return stageUpdates.length + colUpdates.length + modUpdates.length + (headerUpdate ? 1 : 0);
 }
 
 /* ── Supabase load ──
@@ -633,7 +729,7 @@ function qpBlur(inp) {
 function bulkApply(val) {
   const modSel = document.getElementById('bulkModSel').value;
   const colSel = document.getElementById('bulkColSel').value;
-  const mods = modSel === '__all__' ? MODULES : [modSel];
+  const mods = modSel === '__all__' ? MODULES.map(m => m.key) : [modSel];
   const cols = colSel === '__all__' ? COLS.map(c=>c.key) : [colSel];
   let count = 0;
   mods.forEach(m => cols.forEach(c => { data[m][c] = val; count++; }));
@@ -648,10 +744,19 @@ function renderTable() {
   tbody.innerHTML = MODULES.map(mod => {
     const cells = COLS.map(col => {
       const sep = col.sep ? ' cell-stage-sep' : '';
-      const inner = editMode ? renderQP(mod, col.key) : renderBar(mod, col.key);
-      return `<td class="cell-prog${sep}" data-cell="${mod}|${col.key}">${inner}</td>`;
+      const inner = editMode ? renderQP(mod.key, col.key) : renderBar(mod.key, col.key);
+      return `<td class="cell-prog${sep}" data-cell="${escHtml(mod.key)}|${col.key}">${inner}</td>`;
     }).join('');
-    return `<tr class="data-row"><td class="cell-module">${mod}</td>${cells}</tr>`;
+
+    /* In edit mode the module name becomes a text field. Only the
+       display name changes — data-module-key stays fixed, which is what
+       keeps this row's values attached to it. */
+    const nameCell = (editMode && MODULES_EDITABLE)
+      ? `<input class="mod-input" type="text" maxlength="80" value="${escHtml(mod.label)}"
+           data-module-key="${escHtml(mod.key)}" aria-label="Rename module ${escHtml(mod.label)}">`
+      : escHtml(mod.label);
+
+    return `<tr class="data-row"><td class="cell-module">${nameCell}</td>${cells}</tr>`;
   }).join('');
 }
 
@@ -693,8 +798,13 @@ async function saveChanges() {
   const changes = [];
 
   MODULES.forEach(mod => COLS.forEach(col => {
-    const prev = editSnapshot[mod][col.key], curr = data[mod][col.key];
-    if (prev !== curr) changes.push({ ts, mod, col: col.label, colKey: col.key, from: prev, to: curr });
+    const prev = editSnapshot[mod.key]?.[col.key], curr = data[mod.key]?.[col.key];
+    /* mod is the stable key used for saving; modLabel is the display
+       name used in the update log. */
+    if (prev !== curr) changes.push({
+      ts, mod: mod.key, modLabel: mod.label,
+      col: col.label, colKey: col.key, from: prev, to: curr
+    });
   }));
 
   setSyncBadge('sync-loading', 'Saving...');
@@ -747,7 +857,7 @@ function renderLog() {
   el.innerHTML = updateLog.map(e => {
     const fStr = e.from===null?'—':e.from+'%', tStr = e.to===null?'—':e.to+'%';
     const s = pctStyle(e.to);
-    return `<div class="log-entry"><div class="log-ts">${e.ts}</div><div class="log-mod">${e.mod}</div><div class="log-col">${e.col}</div><div class="log-from">${fStr}</div><div class="log-to" style="color:${e.to===null?'#94A3B8':s.bar}">${tStr}</div></div>`;
+    return `<div class="log-entry"><div class="log-ts">${e.ts}</div><div class="log-mod">${escHtml(e.modLabel || e.mod)}</div><div class="log-col">${e.col}</div><div class="log-from">${fStr}</div><div class="log-to" style="color:${e.to===null?'#94A3B8':s.bar}">${tStr}</div></div>`;
   }).join('');
 }
 
