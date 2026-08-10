@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>InsightAccess — Cross-Team Progress Tracker</title>
+<!-- Placeholder only: renderBranding() replaces this with the tracker's
+     own title once it loads. -->
+<title>My Project Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
@@ -21,6 +23,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:#F0F4F8;color:var(--tex
 .topbar-left{display:flex;align-items:baseline;gap:10px}
 .topbar-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px}
 .topbar-sub{font-size:11px;color:#94A3B8}
+/* Rename fields for the app title and description, on the dark bar. */
+.brand-input{font-family:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px dashed rgba(255,255,255,.45);border-radius:4px;padding:2px 6px;outline:none}
+.brand-input:focus{background:rgba(255,255,255,.22);border-style:solid;box-shadow:0 0 0 2px rgba(99,102,241,.5)}
+#topbarTitle .brand-input{width:190px}
+#topbarSub .brand-input{width:260px;color:#CBD5E1}
 .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .last-saved{font-size:11px;color:#475569}
 .sync-badge{font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600}
@@ -153,8 +160,9 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 </div>
 <div class="topbar">
   <div class="topbar-left">
-    <span class="topbar-title">InsightAccess</span>
-    <span class="topbar-sub">Cross-team progress tracker · V2 delivery</span>
+    <!-- Filled in by renderBranding() from the tracker record. -->
+    <span class="topbar-title" id="topbarTitle"></span>
+    <span class="topbar-sub" id="topbarSub"></span>
   </div>
   <div class="topbar-right">
     <span id="auth-area" style="display:flex; align-items:center; gap:8px;"></span>
@@ -304,18 +312,30 @@ let MODULES = [];
 /* The heading above the module names. Editable, stored on the tracker. */
 let ROW_HEADER = 'Module';
 
+/* The app title and description in the top-left, also stored on the
+   tracker so each account can name its own. */
+const DEFAULT_TITLE    = 'My Project Tracker';
+const DEFAULT_SUBTITLE = 'Create your own progress tracker';
+let APP_TITLE    = DEFAULT_TITLE;
+let APP_SUBTITLE = DEFAULT_SUBTITLE;
+
 /* False when the modules table isn't available yet, in which case the
    module names are shown as plain text rather than offering a rename
    that couldn't be saved. */
 let MODULES_EDITABLE = false;
 
-const STARTER_MODULES = [
-  'Super Admin','Onboarding','Talent Acquisition','JD Management',
-  'Org Chart','Assessment','Strategy','Skills','BSC','IDP',
-  'Career Pathing','Succession','Performance','Survey Management',
-  'HRIS','Financial','AI Token','Metric Library','Workflow Engine',
-  'AI Chatbot','Subsidiaries','Integrations'
-];
+/* Placeholder rows for a brand new account.
+
+   These used to be your own 22 module names — Super Admin, Onboarding
+   and so on — which meant every new user started off looking at your
+   project's structure. Generic placeholders instead, for them to rename.
+
+   Change STARTER_MODULE_COUNT to hand out more or fewer rows. */
+const STARTER_MODULE_COUNT = 5;
+const STARTER_MODULES = Array.from(
+  { length: STARTER_MODULE_COUNT },
+  (_, i) => `Module ${i + 1}`
+);
 
 /* The DEFAULTS block that used to live here has been REMOVED.
    It was a hardcoded copy of the original 22x9 starting values. Those
@@ -373,7 +393,11 @@ async function loadStructure() {
 
   /* The heading above the module names. Older tracker rows created
      before 03-modules.sql won't have this column, so fall back. */
-  ROW_HEADER = tracker.row_header_name || 'Module';
+  ROW_HEADER   = tracker.row_header_name || 'Module';
+  /* Trackers created before 04-tracker-branding.sql won't have these
+     fields, so fall back to the defaults. */
+  APP_TITLE    = tracker.title    || DEFAULT_TITLE;
+  APP_SUBTITLE = tracker.subtitle || DEFAULT_SUBTITLE;
 
   const [stageRes, colRes] = await Promise.all([
     sb.from('stages').select('*').eq('tracker_id', TRACKER_ID).order('position'),
@@ -425,7 +449,9 @@ async function loadStructure() {
    cannot be persisted yet. */
 function useFallbackStructure() {
   TRACKER_ID = null;
-  ROW_HEADER = 'Module';
+  ROW_HEADER   = 'Module';
+  APP_TITLE    = DEFAULT_TITLE;
+  APP_SUBTITLE = DEFAULT_SUBTITLE;
   MODULES_EDITABLE = false;
   MODULES = STARTER_MODULES.map(name => ({ key: name, label: name }));
   STAGES = STARTER_STAGES.map((s, i) => ({ ...s, id: 'fallback-' + i }));
@@ -442,7 +468,13 @@ function useFallbackStructure() {
    no progress values are ever written here. */
 async function createStarterStructure() {
   const { data: tracker, error } = await sb.from('trackers')
-    .insert([{ user_id: currentUser.id, name: 'My Tracker', position: 0 }])
+    .insert([{
+      user_id:  currentUser.id,
+      name:     DEFAULT_TITLE,
+      title:    DEFAULT_TITLE,
+      subtitle: DEFAULT_SUBTITLE,
+      position: 0
+    }])
     .select().single();
   if (error) throw error;
 
@@ -482,6 +514,32 @@ async function createStarterStructure() {
   if (mErr) throw mErr;
 
   return tracker;
+}
+
+/* ── The app title and description in the top-left ──
+   Plain text normally; text fields while editing. */
+function renderBranding() {
+  const titleEl = document.getElementById('topbarTitle');
+  const subEl   = document.getElementById('topbarSub');
+  if (!titleEl || !subEl) return;
+
+  /* Keep the browser tab in step with the title. */
+  document.title = APP_TITLE;
+
+  /* The feedback panel asked about "InsightAccess" by name, which every
+     other user would have seen too. */
+  const npsQ = document.getElementById('nps-question');
+  if (npsQ) npsQ.textContent = `How likely are you to recommend ${APP_TITLE}?`;
+
+  if (editMode && TRACKER_ID) {
+    titleEl.innerHTML = `<input class="brand-input" type="text" maxlength="60"
+      value="${escHtml(APP_TITLE)}" data-brand="title" aria-label="Rename the tracker title">`;
+    subEl.innerHTML = `<input class="brand-input" type="text" maxlength="120"
+      value="${escHtml(APP_SUBTITLE)}" data-brand="subtitle" aria-label="Edit the tracker description">`;
+  } else {
+    titleEl.textContent = APP_TITLE;
+    subEl.textContent   = APP_SUBTITLE;
+  }
 }
 
 /* ── Build the table header from the structure ──
@@ -593,13 +651,29 @@ async function saveHeaderEdits() {
       .eq('tracker_id', TRACKER_ID).eq('module_key', u.key);
     if (error) throw error;
   }
-  if (headerUpdate) {
-    const { error } = await sb.from('trackers')
-      .update({ row_header_name: headerUpdate }).eq('id', TRACKER_ID);
+  /* App title and description. Both live on the tracker, so they go in
+     the same update as the row heading. */
+  const trackerUpdate = {};
+  if (headerUpdate) trackerUpdate.row_header_name = headerUpdate;
+
+  const titleInput = document.querySelector('.brand-input[data-brand="title"]');
+  if (titleInput) {
+    const v = titleInput.value.trim();
+    if (v && v !== APP_TITLE) trackerUpdate.title = v;
+  }
+  const subInput = document.querySelector('.brand-input[data-brand="subtitle"]');
+  if (subInput) {
+    const v = subInput.value.trim();
+    if (v && v !== APP_SUBTITLE) trackerUpdate.subtitle = v;
+  }
+
+  const trackerFieldCount = Object.keys(trackerUpdate).length;
+  if (trackerFieldCount > 0) {
+    const { error } = await sb.from('trackers').update(trackerUpdate).eq('id', TRACKER_ID);
     if (error) throw error;
   }
 
-  return stageUpdates.length + colUpdates.length + modUpdates.length + (headerUpdate ? 1 : 0);
+  return stageUpdates.length + colUpdates.length + modUpdates.length + trackerFieldCount;
 }
 
 /* ── Supabase load ──
@@ -642,6 +716,7 @@ async function loadFromDB() {
   }
   document.getElementById('editBtn').style.display = 'flex';
   document.getElementById('loadingOverlay').style.display = 'none';
+  renderBranding();
   renderHead();
   renderTable();
 }
@@ -768,6 +843,7 @@ function enterEdit() {
   document.getElementById('cancelBtn').style.display = 'flex';
   document.getElementById('editBadge').style.display = 'inline';
   document.getElementById('bulkBar').style.display   = 'flex';
+  renderBranding();
   renderHead();   // swaps the header labels for rename fields
   renderTable();
 }
@@ -782,6 +858,7 @@ function cancelEdit() {
   document.getElementById('bulkBar').style.display   = 'none';
   /* Header renames are discarded too — renderHead() redraws from STAGES
      and COLS, which are only updated once a save succeeds. */
+  renderBranding();
   renderHead();
   renderTable();
   showToast('Changes discarded');
@@ -846,6 +923,7 @@ async function saveChanges() {
   document.getElementById('cancelBtn').style.display = 'none';
   document.getElementById('editBadge').style.display = 'none';
   document.getElementById('bulkBar').style.display   = 'none';
+  renderBranding();
   renderHead();   // swaps rename fields back to plain labels
   renderTable();
   renderLog();
@@ -904,7 +982,7 @@ function showToast(msg) {
   <div style="flex:1; overflow-y:auto; padding:16px 18px;">
 
     <div id="pane-nps">
-      <p style="font-size:13px; color:#334155; margin-bottom:4px; font-weight:600;">How likely are you to recommend InsightAccess?</p>
+      <p id="nps-question" style="font-size:13px; color:#334155; margin-bottom:4px; font-weight:600;">How likely are you to recommend this tracker?</p>
       <p style="font-size:11px; color:#64748B; margin-bottom:12px;">0 = not at all · 10 = extremely likely</p>
       <div id="nps-buttons" style="display:flex; gap:3px; flex-wrap:wrap; margin-bottom:12px;"></div>
       <textarea id="nps-comment" placeholder="Optional: tell us why" rows="2" style="width:100%; padding:8px 10px; border:1px solid #CBD5E1; border-radius:6px; font-size:12px; font-family:inherit; resize:vertical; margin-bottom:10px;"></textarea>
