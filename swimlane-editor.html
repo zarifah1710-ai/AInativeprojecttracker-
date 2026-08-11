@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBAC Swimlane Viewer and Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p50:#EEEDFE;--p200:#AFA9EC;--p400:#7F77DD;--p600:#534AB7;--p800:#3C3489;
+  --t50:#E1F5EE;--t400:#1D9E75;--t600:#0F6E56;--t800:#085041;
+  --b50:#E6F1FB;--b400:#378ADD;--b600:#185FA5;--b800:#0C447C;
+  --a50:#FAEEDA;--a200:#EF9F27;--a400:#BA7517;--a600:#854F0B;--a800:#633806;
+  --r50:#FCEBEB;--r400:#E24B4A;--r600:#A32D2D;
+  --g50:#EAF3DE;--g200:#97C459;--g400:#639922;--g600:#3B6D11;--g800:#27500A;
+  --gr50:#F1EFE8;--gr100:#D3D1C7;--gr200:#B4B2A9;--gr400:#888780;--gr600:#5F5E5A;--gr800:#444441;
+}
+body{font-family:"DM Sans",sans-serif;background:#f7f6f2;color:#1a1a18;min-height:100vh}
+
+/* HEADER */
+.app-hdr{background:#26215C;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px}
+.hdr-back{flex:none;display:inline-flex;align-items:center;color:#fff;text-decoration:none;font-size:12px;font-weight:500;background:rgba(255,255,255,.14);padding:5px 11px;border-radius:7px;white-space:nowrap;transition:background .15s}
+.hdr-back:hover{background:rgba(255,255,255,.28)}
+.hdr-back:focus-visible{outline:2px solid #AFA9EC;outline-offset:2px}
+.logo em{background:var(--p400);color:#fff;font-size:10px;padding:2px 8px;border-radius:12px;font-style:normal}
+.logo-sub{font-size:11px;color:var(--p200);margin-top:2px}
+.hdr-right{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border:none;border-radius:8px;font-family:"DM Sans",sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-edit{background:var(--b600);color:#fff}.btn-edit:hover{background:var(--b800)}
+.btn-edit.on{background:var(--b800);outline:2px solid var(--b400);outline-offset:1px}
+.btn-link{background:var(--a600);color:#fff}.btn-link:hover{background:var(--a800)}
+.btn-link.on{background:var(--a800);outline:2px solid var(--a400);outline-offset:1px}
+.btn-add{background:#27500A;color:#fff}.btn-add:hover{background:#1a3a07}
+.btn-save{background:var(--g600);color:#fff}.btn-save:hover{background:var(--g800)}
+.btn-dl{background:#fff;color:#26215C}.btn-dl:hover{background:var(--gr50)}
+.btn-danger{background:var(--r50);color:var(--r600);border:1px solid var(--r400)}.btn-danger:hover{background:var(--r400);color:#fff}
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;display:none;align-items:center;gap:5px}
+.badge-e{background:var(--a50);color:var(--a600);border:1px solid var(--a200)}
+.badge-c{background:var(--b50);color:var(--b600);border:1px solid var(--b400)}
+
+/* MODULE TABS */
+.mod-nav{background:#fff;border-bottom:1px solid var(--gr100);padding:0 20px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;position:relative}
+.mod-nav::-webkit-scrollbar{height:3px}
+.mod-nav::-webkit-scrollbar-thumb{background:var(--gr200)}
+.tabs{display:inline-flex;align-items:stretch}
+.tab{padding:11px 14px;font-size:12px;font-weight:500;color:var(--gr600);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0;display:flex;align-items:center;gap:4px;position:relative}
+.tab:hover{color:var(--p600);background:var(--p50)}
+.tab.on{color:var(--p600);border-bottom-color:var(--p600);font-weight:600}
+.tab .num{font-family:"DM Mono",monospace;font-size:10px;color:var(--gr400)}
+.tab.on .num{color:var(--p400)}
+.tab-label{outline:none;background:transparent;border:none;font-family:"DM Sans",sans-serif;font-size:12px;font-weight:inherit;color:inherit;cursor:pointer;min-width:20px;max-width:140px}
+.tab.on .tab-label{font-weight:600}
+body.edit-on .tab-label{cursor:text;border-bottom:1px dashed var(--p400)}
+.tab-edit-btn{display:none;width:14px;height:14px;background:var(--p100,#ccc);border:none;border-radius:3px;cursor:pointer;font-size:9px;align-items:center;justify-content:center;color:var(--p600)}
+body.edit-on .tab-edit-btn{display:inline-flex}
+
+/* TOOLBAR */
+.toolbar{background:#fafaf8;border-bottom:1px solid var(--gr100);padding:8px 22px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--gr600);padding:3px 8px;background:#fff;border:1px solid var(--gr100);border-radius:20px}
+.dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.sep{width:1px;height:18px;background:var(--gr100)}
+#hint{font-size:11px;color:var(--gr600)}
+
+/* LANES SIDEBAR editable */
+.lane-sidebar{width:130px;flex-shrink:0;border-right:1px solid var(--gr100);background:#F1EFE8}
+.lane-row{display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--gr100);position:relative}
+.lane-name{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gr400);text-align:center;padding:6px 4px;background:transparent;border:none;font-family:"DM Sans",sans-serif;width:100%;resize:none;outline:none}
+body.edit-on .lane-name{cursor:text;background:#fff8;border:1px dashed var(--p300,#aaa)}
+
+/* CANVAS */
+.canvas{padding:18px 22px 60px}
+.panel{display:none}
+.panel.on{display:block}
+.card{background:#fff;border:1px solid var(--gr100);border-radius:14px;overflow:hidden}
+.card-hdr{background:#26215C;padding:9px 18px;display:flex;align-items:center;gap:10px}
+.card-hdr h2{font-size:13px;font-weight:600;color:#fff}
+.mod-num{background:var(--p400);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-family:"DM Mono",monospace}
+.diagram-wrap{overflow-x:auto;position:relative}
+
+/* SVG */
+svg.sw{display:block;font-family:"DM Sans",sans-serif;user-select:none}
+.lane-lbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;fill:var(--gr400);dominant-baseline:central}
+.phase-lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;fill:var(--p200);text-anchor:middle;dominant-baseline:central}
+.node-t{font-size:12px;font-weight:500;dominant-baseline:central;text-anchor:middle;pointer-events:none}
+.node-s{font-size:10px;dominant-baseline:central;text-anchor:middle;pointer-events:none}
+.edge-l{font-size:10px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+
+/* Node interactions */
+body.edit-on .node-g{cursor:grab}
+body.edit-on .node-g:hover .nbg{filter:brightness(.88)}
+body.edit-on .node-g.sel .nbg{stroke-width:2.5!important;filter:drop-shadow(0 0 7px rgba(83,74,183,.5))}
+body.edit-on .node-g.dragging{cursor:grabbing;opacity:.75}
+body.clink-on .node-g{cursor:crosshair}
+body.clink-on .node-g.csrc .nbg{stroke:var(--a400)!important;stroke-width:2.5!important}
+body.edit-on .conn-g{cursor:pointer}
+.conn-g.csel line{stroke:var(--p400)!important;stroke-width:2.5!important;stroke-dasharray:6 3}
+
+/* Lane drop highlight */
+.lane-drop-target{fill:rgba(83,74,183,.08)!important;stroke:var(--p400);stroke-width:1.5;stroke-dasharray:4 3}
+
+/* MODALS */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
+.ov.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;width:460px;max-width:100%;box-shadow:0 20px 70px rgba(0,0,0,.2);max-height:92vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:3px}
+.modal-sub{font-size:12px;color:var(--gr600);margin-bottom:18px}
+.f{margin-bottom:13px}
+.f label{display:block;font-size:12px;font-weight:500;color:var(--gr600);margin-bottom:5px}
+.f input,.f select,.f textarea{width:100%;padding:8px 11px;border:1px solid var(--gr100);border-radius:8px;font-family:"DM Sans",sans-serif;font-size:13px;color:#1a1a18;outline:none;transition:border-color .15s}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--p400)}
+.shape-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.sopt{padding:8px 4px;border:2px solid var(--gr100);border-radius:8px;cursor:pointer;text-align:center;font-size:11px;color:var(--gr600);transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:4px}
+.sopt:hover{border-color:var(--p200);background:var(--p50)}
+.sopt.on{border-color:var(--p600);background:var(--p50);color:var(--p600);font-weight:600}
+.sopt svg{width:44px;height:26px}
+.crow{display:flex;gap:6px;flex-wrap:wrap}
+.csw{width:26px;height:26px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
+.csw.on{border-color:#1a1a18!important}
+.mrow{display:flex;gap:8px;margin-top:18px}
+.mrow .btn{flex:1;justify-content:center}
+.cstyle-row{display:flex;gap:7px}
+.cso{flex:1;padding:8px 5px;border:2px solid var(--gr100);border-radius:8px;cursor:pointer;text-align:center;font-size:12px;transition:all .15s}
+.cso:hover{background:var(--gr50)}
+.cso.on{border-color:var(--p600);background:var(--p50);color:var(--p600);font-weight:600}
+.lane-select{width:100%}
+
+/* Lane col in node modal */
+.lane-pills{display:flex;flex-wrap:wrap;gap:6px}
+.lpill{padding:5px 10px;border:2px solid var(--gr100);border-radius:20px;font-size:11px;cursor:pointer;transition:all .15s}
+.lpill:hover{border-color:var(--p400)}
+.lpill.on{border-color:var(--p600);background:var(--p50);color:var(--p600);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="app-hdr">
+  <div style="display:flex;align-items:center;gap:12px">
+    <!-- Back to the landing page. The left sidebar (nav.js) also does this,
+         but an always-visible button means you never have to find the menu. -->
+    <a class="hdr-back" href="index.html" title="Back to menu">&#8592; Menu</a>
+    <div class="logo">RBAC Swimlane Viewer and Editor</div>
+  </div>
+  <div class="hdr-right">
+    <span class="badge badge-e" id="badgeE">&#9998; Edit Mode</span>
+    <span class="badge badge-c" id="badgeC">&#128279; Click source then target</span>
+    <button class="btn btn-edit" id="btnEdit" onclick="toggleEdit()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M9 1.5l2.5 2.5L4 11.5H1.5V9L9 1.5z" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Edit Mode
+    </button>
+    <button class="btn btn-add" id="btnAddNode" onclick="openAddNode()" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2v9M2 6.5h9" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Add Node
+    </button>
+    <button class="btn btn-link" id="btnLink" onclick="toggleLink()" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="2.5" cy="6.5" r="1.8" stroke="#fff" stroke-width="1.3"/><circle cx="10.5" cy="6.5" r="1.8" stroke="#fff" stroke-width="1.3"/><line x1="4.3" y1="6.5" x2="8.7" y2="6.5" stroke="#fff" stroke-width="1.3"/></svg>
+      Add Link
+    </button>
+    <button class="btn btn-save" id="btnSave" onclick="doSave()" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3 3 6-6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Save
+    </button>
+    <button class="btn btn-dl" onclick="doExport()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v7M4 6l2.5 2.5L9 6M2 10v1.5A.5.5 0 002.5 12h8a.5.5 0 00.5-.5V10" stroke="#26215C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Export SVG
+    </button>
+  </div>
+</div>
+
+<div class="mod-nav"><div class="tabs" id="tabBar"></div></div>
+
+<div class="toolbar">
+  <div class="pill"><div class="dot" style="background:#EEEDFE;border:1px solid #7F77DD"></div>CXS Admin</div>
+  <div class="pill"><div class="dot" style="background:#E6F1FB;border:1px solid #378ADD"></div>Tenant Admin</div>
+  <div class="pill"><div class="dot" style="background:#E1F5EE;border:1px solid #1D9E75"></div>System</div>
+  <div class="pill"><div class="dot" style="background:#FAEEDA;border:1px solid #BA7517"></div>AI Engine</div>
+  <div class="pill"><div class="dot" style="background:#FCEBEB;border:1px solid #E24B4A"></div>Error</div>
+  <div class="pill"><div class="dot" style="background:#EAF3DE;border:1px solid #639922"></div>Complete</div>
+  <div class="sep"></div>
+  <span id="hint">Click <b>Edit Mode</b> to edit tabs, lanes, nodes &amp; connections</span>
+</div>
+
+<div class="canvas" id="canvas"></div>
+
+<!-- NODE MODAL (edit + add) -->
+<div class="ov" id="nodeOv">
+  <div class="modal">
+    <h3 id="nodeOvTitle">Edit Node</h3>
+    <p class="modal-sub">Update label, sub-label, lane, shape, and color</p>
+    <div class="f"><label>Main Label</label><input id="iTitle" type="text" placeholder="Node label"></div>
+    <div class="f"><label>Sub Label <span style="font-weight:400;color:var(--gr400)">(optional)</span></label><input id="iSub" type="text" placeholder="Sub-label"></div>
+    <div class="f">
+      <label>Lane (Row)</label>
+      <div class="lane-pills" id="lanePills"></div>
+    </div>
+    <div class="f">
+      <label>Shape</label>
+      <div class="shape-grid">
+        <div class="sopt on" data-s="rect" onclick="pickShape(this,'rect')"><svg viewBox="0 0 44 26"><rect x="2" y="2" width="40" height="22" rx="6" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Rounded</div>
+        <div class="sopt" data-s="sharp" onclick="pickShape(this,'sharp')"><svg viewBox="0 0 44 26"><rect x="2" y="2" width="40" height="22" rx="0" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Rectangle</div>
+        <div class="sopt" data-s="diamond" onclick="pickShape(this,'diamond')"><svg viewBox="0 0 44 26"><polygon points="22,1 41,13 22,25 3,13" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Diamond</div>
+        <div class="sopt" data-s="circle" onclick="pickShape(this,'circle')"><svg viewBox="0 0 44 26"><circle cx="22" cy="13" r="11" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Circle</div>
+        <div class="sopt" data-s="pill" onclick="pickShape(this,'pill')"><svg viewBox="0 0 44 26"><rect x="2" y="6" width="40" height="14" rx="7" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Pill</div>
+        <div class="sopt" data-s="hexagon" onclick="pickShape(this,'hexagon')"><svg viewBox="0 0 44 26"><polygon points="12,2 32,2 42,13 32,24 12,24 2,13" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Hexagon</div>
+        <div class="sopt" data-s="parallelogram" onclick="pickShape(this,'parallelogram')"><svg viewBox="0 0 44 26"><polygon points="9,2 42,2 35,24 2,24" fill="none" stroke="#534AB7" stroke-width="1.5"/></svg>Parallelogram</div>
+        <div class="sopt" data-s="terminal" onclick="pickShape(this,'terminal')"><svg viewBox="0 0 44 26"><rect x="2" y="6" width="40" height="14" rx="7" fill="#534AB7" opacity=".85"/></svg>Terminal</div>
+      </div>
+    </div>
+    <div class="f">
+      <label>Color</label>
+      <div class="crow">
+        <div class="csw on" data-c="purple" style="background:#EEEDFE;border-color:#7F77DD" onclick="pickColor(this,'purple')"></div>
+        <div class="csw" data-c="blue" style="background:#E6F1FB;border-color:#378ADD" onclick="pickColor(this,'blue')"></div>
+        <div class="csw" data-c="teal" style="background:#E1F5EE;border-color:#1D9E75" onclick="pickColor(this,'teal')"></div>
+        <div class="csw" data-c="amber" style="background:#FAEEDA;border-color:#BA7517" onclick="pickColor(this,'amber')"></div>
+        <div class="csw" data-c="red" style="background:#FCEBEB;border-color:#E24B4A" onclick="pickColor(this,'red')"></div>
+        <div class="csw" data-c="green" style="background:#EAF3DE;border-color:#639922" onclick="pickColor(this,'green')"></div>
+        <div class="csw" data-c="dark" style="background:#3B6D11;border-color:#27500A" onclick="pickColor(this,'dark')"></div>
+        <div class="csw" data-c="gray" style="background:#F1EFE8;border-color:#888780" onclick="pickColor(this,'gray')"></div>
+      </div>
+    </div>
+    <div class="mrow">
+      <button class="btn btn-save" onclick="applyNode()">Apply</button>
+      <button class="btn btn-danger" id="btnDeleteNode" onclick="deleteNode()" style="display:none">Delete Node</button>
+      <button class="btn" style="background:var(--gr50);color:var(--gr800)" onclick="closeNodeOv()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONN MODAL -->
+<div class="ov" id="connOv">
+  <div class="modal">
+    <h3>Edit Connection</h3>
+    <p class="modal-sub">Change label and line style</p>
+    <div class="f"><label>Label <span style="font-weight:400;color:var(--gr400)">(optional)</span></label><input id="cLbl" type="text" placeholder="e.g. Yes / No / Error"></div>
+    <div class="f">
+      <label>Style</label>
+      <div class="cstyle-row">
+        <div class="cso on" data-s="normal" onclick="pickCS(this,'normal')">&#8594; Default</div>
+        <div class="cso" data-s="ok" onclick="pickCS(this,'ok')">&#10003; Success</div>
+        <div class="cso" data-s="err" onclick="pickCS(this,'err')">&#10007; Error</div>
+        <div class="cso" data-s="dashed" onclick="pickCS(this,'dashed')">- - Dashed</div>
+      </div>
+    </div>
+    <div class="mrow">
+      <button class="btn btn-save" onclick="applyConn()">Apply</button>
+      <button class="btn btn-danger" onclick="delConn()">Delete</button>
+      <button class="btn" style="background:var(--gr50);color:var(--gr800)" onclick="closeConnOv()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SW=1560, SH=780;
+
+var MODS=[
+  "Workspace Onboarding","User Management","Role Assignment","Permission Sets",
+  "Data Access Control","Report Builder","Dashboard Config","AI Engine Setup",
+  "CSV Import/Export","Audit & Logging","Notification Rules","API Integration",
+  "SSO / Auth Config","Tenant Provisioning","Billing & Plans","Support Escalation",
+  "Analytics Module","System Health"
+];
+
+// Default lane definitions per module (editable labels)
+function defaultLanes(){
+  return [
+    {id:"l1",lbl:"CXS Admin",   y:40, h:120,bg:"#FAFAF8"},
+    {id:"l2",lbl:"Tenant Admin",y:160,h:120,bg:"#F7F9FE"},
+    {id:"l3",lbl:"System",      y:280,h:120,bg:"#F4FBF8"},
+    {id:"l4",lbl:"AI Engine",   y:400,h:120,bg:"#FEFAF0"},
+    {id:"l5",lbl:"Errors",      y:520,h:100,bg:"#FFF8F8"},
+    {id:"l6",lbl:"Complete",    y:620,h:100,bg:"#F5FCF7"}
+  ];
+}
+
+var CLR={
+  purple:{bg:"#EEEDFE",st:"#7F77DD",tx:"#3C3489",sub:"#534AB7"},
+  blue:  {bg:"#E6F1FB",st:"#378ADD",tx:"#0C447C",sub:"#185FA5"},
+  teal:  {bg:"#E1F5EE",st:"#1D9E75",tx:"#085041",sub:"#0F6E56"},
+  amber: {bg:"#FAEEDA",st:"#BA7517",tx:"#633806",sub:"#854F0B"},
+  red:   {bg:"#FCEBEB",st:"#E24B4A",tx:"#791F1F",sub:"#A32D2D"},
+  green: {bg:"#EAF3DE",st:"#639922",tx:"#27500A",sub:"#3B6D11"},
+  dark:  {bg:"#3B6D11",st:"#27500A",tx:"#EAF3DE",sub:"#97C459"},
+  gray:  {bg:"#F1EFE8",st:"#888780",tx:"#444441",sub:"#5F5E5A"}
+};
+
+function makeNodes(i){
+  var T=[
+    [{id:"n1",lane:"l1",x:170,y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Provision Tenant",     sub:"Admin Portal"},
+     {id:"n2",lane:"l3",x:170,y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Create Workspace",    sub:"tenant record"},
+     {id:"n3",lane:"l3",x:370,y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Send Activation",     sub:"email to admin"},
+     {id:"n4",lane:"l2",x:370,y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Receive Email",       sub:"click link"},
+     {id:"n5",lane:"l3",x:570,y:175,w:148,h:52,shape:"rect",    color:"teal",  title:"Validate Link",       sub:"token+expiry"},
+     {id:"n6",lane:"l3",x:570,y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Set Password",        sub:"inline rules"},
+     {id:"n7",lane:"l2",x:770,y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Onboarding Wizard",   sub:"step 1 active"},
+     {id:"n8",lane:"l3",x:770,y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Authenticate",        sub:"redirect"},
+     {id:"n9",lane:"l6",x:970,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Onboarding Complete", sub:"go to hub"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Invite User",       sub:"email + role"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Send Invite Email", sub:"token generated"},
+     {id:"n3",lane:"l5",x:570, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Accepted?",         sub:""},
+     {id:"n4",lane:"l2",x:770, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"User Registers",    sub:"fills profile"},
+     {id:"n5",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Activate Account",  sub:"role assigned"},
+     {id:"n6",lane:"l5",x:570, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Expire Invite",     sub:"after 48 hrs"},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"User Active",       sub:"full access"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Select User",    sub:"search/filter"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Choose Role",    sub:"Admin/User/Viewer"},
+     {id:"n3",lane:"l5",x:570, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Conflicts?",     sub:""},
+     {id:"n4",lane:"l3",x:770, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Apply Role",     sub:"update perms"},
+     {id:"n5",lane:"l5",x:570, y:540,w:148,h:52,shape:"rect",    color:"amber", title:"Show Conflict",  sub:"resolve first"},
+     {id:"n6",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Log Change",     sub:"audit trail"},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Role Saved",     sub:"notify user"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Open Perm Set",   sub:"select template"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Configure CRUD", sub:"per module toggle"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Validate Rules", sub:"conflict engine"},
+     {id:"n4",lane:"l5",x:570, y:540,w:148,h:52,shape:"rect",    color:"amber", title:"Flag Conflicts", sub:"overlapping rules"},
+     {id:"n5",lane:"l2",x:770, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Preview Access", sub:"simulate view"},
+     {id:"n6",lane:"l5",x:970, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Approve?",       sub:""},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Publish Set",    sub:"applied to roles"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Define Data Policy",sub:"rows/columns"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Select Datasets",  sub:"tables/views"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Apply Row Filter", sub:"condition builder"},
+     {id:"n4",lane:"l3",x:770, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Apply Col Mask",   sub:"PII/sensitive"},
+     {id:"n5",lane:"l5",x:970, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Test Pass?",       sub:""},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Activate Policy",  sub:"enforce on query"},
+     {id:"n7",lane:"l5",x:970, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Test Failed",      sub:"adjust rules"}],
+    [{id:"n1",lane:"l2",x:170, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"New Report",          sub:"blank/template"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Select Data Source",  sub:"dataset+filters"},
+     {id:"n3",lane:"l2",x:570, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Add Columns",         sub:"drag and drop"},
+     {id:"n4",lane:"l4",x:770, y:425,w:148,h:52,shape:"rect",    color:"amber", title:"AI Suggest Fields",   sub:"confidence score"},
+     {id:"n5",lane:"l2",x:970, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Preview Report",      sub:"sample 100 rows"},
+     {id:"n6",lane:"l5",x:1170,y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Save?",               sub:""},
+     {id:"n7",lane:"l6",x:1370,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Publish Report",      sub:"share to roles"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Open Dashboard",   sub:"admin view"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Add Widgets",      sub:"drag from library"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Bind Data Source", sub:"per widget"},
+     {id:"n4",lane:"l2",x:770, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Set Permissions",  sub:"which roles"},
+     {id:"n5",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Save Layout",      sub:"versioned"},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Publish Dashboard",sub:"live for users"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Enable AI Module",sub:"tenant toggle"},
+     {id:"n2",lane:"l4",x:370, y:425,w:148,h:52,shape:"rect",    color:"amber", title:"Configure Model", sub:"select LLM"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Set Data Scope",  sub:"approved data"},
+     {id:"n4",lane:"l4",x:770, y:425,w:148,h:52,shape:"rect",    color:"amber", title:"Test Inference",  sub:"sample prompt"},
+     {id:"n5",lane:"l5",x:770, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Output OK?",      sub:""},
+     {id:"n6",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Log Baseline",    sub:"accuracy metrics"},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"AI Live",         sub:"tenant enabled"}],
+    [{id:"n1",lane:"l2",x:170, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Upload CSV",        sub:"drag or browse"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Parse and Validate",sub:"field checks"},
+     {id:"n3",lane:"l5",x:570, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Errors?",           sub:""},
+     {id:"n4",lane:"l3",x:770, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Map Columns",       sub:"auto+manual"},
+     {id:"n5",lane:"l5",x:570, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Show Row Errors",   sub:"fix inline"},
+     {id:"n6",lane:"l2",x:970, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Preview Import",    sub:"confirm count"},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Import Complete",   sub:"records created"}],
+    [{id:"n1",lane:"l3",x:170, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Capture Event",   sub:"any action"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Enrich Metadata", sub:"user/IP/time"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Write Audit Log", sub:"append-only"},
+     {id:"n4",lane:"l1",x:770, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Search Logs",      sub:"filter/date range"},
+     {id:"n5",lane:"l5",x:970, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Alert Rule Hit?", sub:""},
+     {id:"n6",lane:"l4",x:1170,y:425,w:148,h:52,shape:"rect",    color:"amber", title:"Send Alert",      sub:"email/webhook"},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"No Alert",        sub:"normal activity"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Create Rule",     sub:"trigger+condition"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Select Recipients",sub:"roles/users"},
+     {id:"n3",lane:"l2",x:570, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Choose Channel", sub:"email/slack"},
+     {id:"n4",lane:"l3",x:770, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Test Rule",      sub:"dry run"},
+     {id:"n5",lane:"l5",x:970, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Delivered?",     sub:""},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Activate Rule",  sub:"live monitoring"},
+     {id:"n7",lane:"l5",x:970, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Delivery Failed",sub:"retry/fallback"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Generate API Key",  sub:"scope+expiry"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Register Endpoint", sub:"URL+auth method"},
+     {id:"n3",lane:"l5",x:570, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"200 OK?",           sub:""},
+     {id:"n4",lane:"l3",x:770, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Map Payload",       sub:"field transformer"},
+     {id:"n5",lane:"l6",x:970, y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Integration Live",  sub:"streaming events"},
+     {id:"n6",lane:"l5",x:770, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Conn Error",        sub:"check credentials"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"Enable SSO",          sub:"SAML/OIDC"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Upload IdP Metadata", sub:"XML/well-known"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Validate Config",     sub:"cert+endpoints"},
+     {id:"n4",lane:"l2",x:770, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Test SSO Login",      sub:"dev user flow"},
+     {id:"n5",lane:"l5",x:970, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Auth Success?",       sub:""},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Enable for Tenant",   sub:"SSO active"},
+     {id:"n7",lane:"l5",x:970, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Auth Failed",         sub:"check assertion"}],
+    [{id:"n1",lane:"l1",x:170, y:75, w:148,h:52,shape:"rect",    color:"purple",title:"New Tenant Request",sub:"form submitted"},
+     {id:"n2",lane:"l5",x:370, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Plan Valid?",      sub:""},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Provision DB",     sub:"isolated schema"},
+     {id:"n4",lane:"l3",x:770, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Seed Defaults",    sub:"roles+config"},
+     {id:"n5",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Create Admin User",sub:"send invite"},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Tenant Live",      sub:"onboarding starts"},
+     {id:"n7",lane:"l5",x:370, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Invalid Plan",     sub:"contact sales"}],
+    [{id:"n1",lane:"l2",x:170, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"View Current Plan",sub:"usage summary"},
+     {id:"n2",lane:"l2",x:370, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Select New Plan",  sub:"upgrade/downgrade"},
+     {id:"n3",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Calculate Diff",   sub:"proration estimate"},
+     {id:"n4",lane:"l5",x:770, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Confirm?",         sub:""},
+     {id:"n5",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Charge Payment",   sub:"gateway"},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Plan Updated",     sub:"features active"},
+     {id:"n7",lane:"l5",x:970, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Payment Failed",   sub:"retry/contact"}],
+    [{id:"n1",lane:"l2",x:170, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Submit Ticket",  sub:"category+severity"},
+     {id:"n2",lane:"l4",x:370, y:425,w:148,h:52,shape:"rect",    color:"amber", title:"AI Triage",      sub:"auto-classify"},
+     {id:"n3",lane:"l5",x:570, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"P1 / P2?",       sub:""},
+     {id:"n4",lane:"l4",x:770, y:425,w:148,h:52,shape:"rect",    color:"red",   title:"Escalate to L2", sub:"notify on-call"},
+     {id:"n5",lane:"l3",x:970, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Assign Engineer",sub:"SLA starts"},
+     {id:"n6",lane:"l3",x:570, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"L1 Self-Serve",  sub:"knowledge base"},
+     {id:"n7",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Resolve + Close",sub:"CSAT survey"}],
+    [{id:"n1",lane:"l2",x:170, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Open Analytics",   sub:"date range picker"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Run Query",         sub:"aggregated data"},
+     {id:"n3",lane:"l4",x:570, y:425,w:148,h:52,shape:"rect",    color:"amber", title:"AI Insights",       sub:"anomaly detect"},
+     {id:"n4",lane:"l2",x:770, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Choose Chart Type", sub:"bar/line/pie"},
+     {id:"n5",lane:"l2",x:970, y:175,w:148,h:52,shape:"rect",    color:"blue",  title:"Export or Share",   sub:"PDF/link"},
+     {id:"n6",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Dashboard Pinned",  sub:"saved for team"}],
+    [{id:"n1",lane:"l3",x:170, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Health Check Cron",sub:"every 60s"},
+     {id:"n2",lane:"l3",x:370, y:305,w:148,h:52,shape:"rect",    color:"teal",  title:"Ping Services",    sub:"API/DB/Cache"},
+     {id:"n3",lane:"l5",x:570, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"All Green?",       sub:""},
+     {id:"n4",lane:"l6",x:770, y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Log OK Status",    sub:"uptime board"},
+     {id:"n5",lane:"l5",x:570, y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Service Down",     sub:"alert on-call"},
+     {id:"n6",lane:"l4",x:770, y:425,w:148,h:52,shape:"rect",    color:"amber", title:"Auto Restart",     sub:"retry x3"},
+     {id:"n7",lane:"l5",x:970, y:540,w:148,h:52,shape:"diamond", color:"gray",  title:"Recovered?",       sub:""},
+     {id:"n8",lane:"l6",x:1170,y:640,w:148,h:52,shape:"terminal",color:"dark",  title:"Service OK",       sub:"alert cleared"},
+     {id:"n9",lane:"l5",x:1170,y:540,w:148,h:52,shape:"rect",    color:"red",   title:"Escalate Outage",  sub:"incident raised"}]
+  ];
+  return JSON.parse(JSON.stringify(T[i]||T[0]));
+}
+
+function makeConns(i){
+  var T=[
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"Yes",style:"ok"},{id:"c6",from:"n6",to:"n8",label:"",style:"normal"},
+     {id:"c7",from:"n8",to:"n7",label:"",style:"normal"},{id:"c8",from:"n7",to:"n9",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"Yes",style:"ok"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n3",to:"n6",label:"Expired",style:"err"},{id:"c6",from:"n5",to:"n7",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"No",style:"ok"},{id:"c4",from:"n3",to:"n5",label:"Yes",style:"err"},
+     {id:"c5",from:"n4",to:"n6",label:"",style:"normal"},{id:"c6",from:"n6",to:"n7",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"Conflict",style:"err"},{id:"c4",from:"n3",to:"n5",label:"OK",style:"ok"},
+     {id:"c5",from:"n5",to:"n6",label:"",style:"normal"},{id:"c6",from:"n6",to:"n7",label:"Yes",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"Pass",style:"ok"},{id:"c6",from:"n5",to:"n7",label:"Fail",style:"err"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"dashed"},
+     {id:"c5",from:"n5",to:"n6",label:"",style:"normal"},{id:"c6",from:"n6",to:"n7",label:"Yes",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"Yes",style:"ok"},{id:"c6",from:"n6",to:"n7",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"No",style:"ok"},{id:"c4",from:"n3",to:"n5",label:"Yes",style:"err"},
+     {id:"c5",from:"n4",to:"n6",label:"",style:"normal"},{id:"c6",from:"n6",to:"n7",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"Yes",style:"err"},{id:"c6",from:"n5",to:"n7",label:"No",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"Yes",style:"ok"},{id:"c6",from:"n5",to:"n7",label:"No",style:"err"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"ok"},{id:"c4",from:"n4",to:"n5",label:"",style:"ok"},
+     {id:"c5",from:"n3",to:"n6",label:"Fail",style:"err"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"Yes",style:"ok"},{id:"c6",from:"n5",to:"n7",label:"No",style:"err"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"Yes",style:"ok"},
+     {id:"c3",from:"n2",to:"n7",label:"No",style:"err"},{id:"c4",from:"n3",to:"n4",label:"",style:"normal"},
+     {id:"c5",from:"n4",to:"n5",label:"",style:"normal"},{id:"c6",from:"n5",to:"n6",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"Yes",style:"ok"},
+     {id:"c5",from:"n5",to:"n6",label:"",style:"ok"},{id:"c6",from:"n5",to:"n7",label:"Failed",style:"err"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"P1/P2",style:"err"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n7",label:"",style:"ok"},{id:"c6",from:"n3",to:"n6",label:"L1",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"",style:"normal"},{id:"c4",from:"n4",to:"n5",label:"",style:"normal"},
+     {id:"c5",from:"n5",to:"n6",label:"",style:"ok"}],
+    [{id:"c1",from:"n1",to:"n2",label:"",style:"normal"},{id:"c2",from:"n2",to:"n3",label:"",style:"normal"},
+     {id:"c3",from:"n3",to:"n4",label:"Yes",style:"ok"},{id:"c4",from:"n3",to:"n5",label:"No",style:"err"},
+     {id:"c5",from:"n5",to:"n6",label:"",style:"normal"},{id:"c6",from:"n6",to:"n7",label:"",style:"normal"},
+     {id:"c7",from:"n7",to:"n8",label:"Yes",style:"ok"},{id:"c8",from:"n7",to:"n9",label:"No",style:"err"}]
+  ];
+  return JSON.parse(JSON.stringify(T[i]||[]));
+}
+
+// ── State ──────────────────────────────────────────────────────
+var MD=MODS.map(function(_,i){return{nodes:makeNodes(i),conns:makeConns(i),lanes:defaultLanes()};});
+var MOD_NAMES=MODS.slice();
+var AM=0,EM=false,LM=false;
+var CS=null,SN=null,SC=null;
+var PS="rect",PC="purple",PCS="normal",PLANE="l1";
+var isAddMode=false;
+// Drag state
+var dragNode=null,dragOffX=0,dragOffY=0,dragSVG=null;
+
+// ── SVG helper ──────────────────────────────────────────────────
+function ns(tag,attrs){
+  var el=document.createElementNS("http://www.w3.org/2000/svg",tag);
+  Object.keys(attrs).forEach(function(k){el.setAttribute(k,String(attrs[k]));});
+  return el;
+}
+
+// ── Build tabs ──────────────────────────────────────────────────
+function buildTabs(){
+  var bar=document.getElementById("tabBar");
+  bar.innerHTML="";
+  MOD_NAMES.forEach(function(m,i){
+    var t=document.createElement("div");
+    t.className="tab"+(i===0?" on":"");
+    t.id="tab-"+i;
+    var numSpan=document.createElement("span");
+    numSpan.className="num";
+    numSpan.textContent=String(i+1).padStart(2,"0");
+    var inp=document.createElement("input");
+    inp.className="tab-label";
+    inp.value=m;
+    inp.readOnly=true;
+    inp.title="Double-click to rename";
+    inp.addEventListener("blur",function(){
+      MOD_NAMES[i]=inp.value||MOD_NAMES[i];
+      inp.readOnly=true;
+      updateCardHeader(i);
+    });
+    inp.addEventListener("keydown",function(e){
+      if(e.key==="Enter"){inp.blur();}
+      e.stopPropagation();
+    });
+    inp.addEventListener("click",function(e){
+      if(EM){e.stopPropagation();inp.readOnly=false;inp.focus();inp.select();}
+    });
+    t.appendChild(numSpan);
+    t.appendChild(inp);
+    t.addEventListener("click",(function(idx){return function(){switchMod(idx);};})(i));
+    bar.appendChild(t);
+  });
+}
+
+function updateCardHeader(i){
+  var hdr=document.querySelector("#panel-"+i+" h2");
+  if(hdr) hdr.textContent=MOD_NAMES[i];
+}
+
+function switchMod(i){
+  AM=i;CS=null;SN=null;SC=null;dragNode=null;
+  document.querySelectorAll(".tab").forEach(function(t,j){t.classList.toggle("on",j===i);});
+  document.querySelectorAll(".panel").forEach(function(p,j){p.classList.toggle("on",j===i);});
+}
+
+// ── Build panels ────────────────────────────────────────────────
+function buildPanels(){
+  var wrap=document.getElementById("canvas");
+  wrap.innerHTML="";
+  MOD_NAMES.forEach(function(m,i){
+    var p=document.createElement("div");
+    p.className="panel"+(i===0?" on":"");
+    p.id="panel-"+i;
+    p.innerHTML='<div class="card"><div class="card-hdr"><span class="mod-num">'+
+      String(i+1).padStart(2,"0")+'</span><h2>'+m+'</h2></div>'+
+      '<div class="diagram-wrap">'+
+      '<svg id="svg-'+i+'" class="sw" width="'+SW+'" height="'+SH+'" viewBox="0 0 '+SW+' '+SH+'" xmlns="http://www.w3.org/2000/svg">'+
+      '<defs>'+
+      '<marker id="a'+i+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1.5L8.5 5L1 8.5" fill="none" stroke="#888780" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></marker>'+
+      '<marker id="ao'+i+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1.5L8.5 5L1 8.5" fill="none" stroke="#1D9E75" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></marker>'+
+      '<marker id="ae'+i+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1.5L8.5 5L1 8.5" fill="none" stroke="#E24B4A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></marker>'+
+      '</defs></svg></div></div>';
+    wrap.appendChild(p);
+    setupSVGDrag(i);
+    render(i);
+  });
+}
+
+// ── Setup drag on SVG ───────────────────────────────────────────
+function setupSVGDrag(mi){
+  var svg=document.getElementById("svg-"+mi);
+  if(!svg) return;
+
+  svg.addEventListener("mousemove",function(e){
+    if(!dragNode||dragNode.mi!==mi) return;
+    var pt=svgPoint(svg,e);
+    dragNode.node.x=Math.round(pt.x-dragOffX);
+    dragNode.node.y=Math.round(pt.y-dragOffY);
+    // snap y to nearest lane center
+    var lane=snapToLane(mi,pt.y);
+    if(lane){
+      dragNode.node.lane=lane.id;
+      dragNode.node.y=lane.y+Math.round((lane.h-dragNode.node.h)/2);
+    }
+    render(mi);
+  });
+
+  svg.addEventListener("mouseup",function(e){
+    if(!dragNode||dragNode.mi!==mi) return;
+    dragNode=null;
+    document.body.style.cursor="";
+    render(mi);
+  });
+
+  svg.addEventListener("mouseleave",function(){
+    if(dragNode&&dragNode.mi===mi){
+      dragNode=null;
+      document.body.style.cursor="";
+      render(mi);
+    }
+  });
+}
+
+function svgPoint(svg,e){
+  var rect=svg.getBoundingClientRect();
+  var vb=svg.viewBox.baseVal;
+  var scaleX=vb.width/rect.width;
+  var scaleY=vb.height/rect.height;
+  return{x:(e.clientX-rect.left)*scaleX,y:(e.clientY-rect.top)*scaleY};
+}
+
+function snapToLane(mi,y){
+  var lanes=MD[mi].lanes;
+  for(var i=0;i<lanes.length;i++){
+    var ln=lanes[i];
+    if(y>=ln.y&&y<=ln.y+ln.h) return ln;
+  }
+  return null;
+}
+
+// ── Render ──────────────────────────────────────────────────────
+function render(i){
+  var svg=document.getElementById("svg-"+i);
+  if(!svg) return;
+  svg.querySelectorAll(".dyn").forEach(function(e){e.remove();});
+  var g=ns("g",{"class":"dyn"});
+  var lanes=MD[i].lanes;
+
+  // Background + header bar
+  g.appendChild(ns("rect",{x:0,y:0,width:SW,height:SH,fill:"#f7f6f2"}));
+  lanes.forEach(function(ln){
+    g.appendChild(ns("rect",{x:0,y:ln.y,width:SW,height:ln.h,fill:ln.bg}));
+    g.appendChild(ns("line",{x1:0,y1:ln.y+ln.h,x2:SW,y2:ln.y+ln.h,stroke:"#D3D1C7","stroke-width":0.7}));
+  });
+  g.appendChild(ns("rect",{x:0,y:0,width:SW,height:40,fill:"#26215C"}));
+  // Left label column
+  g.appendChild(ns("rect",{x:0,y:0,width:130,height:SH,fill:"#F1EFE8"}));
+  g.appendChild(ns("line",{x1:130,y1:0,x2:130,y2:SH,stroke:"#D3D1C7","stroke-width":1}));
+
+  // Phase headers
+  var phases=[{x:330,l:"Initiation"},{x:570,l:"Processing"},{x:810,l:"Decision"},
+              {x:1050,l:"Execution"},{x:1290,l:"Completion"},{x:1470,l:"Finalize"}];
+  phases.forEach(function(ph){
+    var pt=ns("text",{x:ph.x,y:20,"class":"phase-lbl"});pt.textContent=ph.l;g.appendChild(pt);
+    g.appendChild(ns("line",{x1:ph.x-115,y1:0,x2:ph.x-115,y2:40,stroke:"#534AB7","stroke-width":1,opacity:0.3}));
+  });
+
+  // Lane labels (editable in edit mode via foreignObject)
+  lanes.forEach(function(ln,li){
+    var lbl=ns("text",{x:65,y:ln.y+ln.h/2,"class":"lane-lbl","text-anchor":"middle","dominant-baseline":"central"});
+    lbl.textContent=ln.lbl;
+    g.appendChild(lbl);
+    if(EM){
+      // Clickable edit zone for lane label
+      var lclick=ns("rect",{x:2,y:ln.y+2,width:126,height:ln.h-4,fill:"rgba(83,74,183,0.06)",stroke:"var(--p400)","stroke-width":0.8,"stroke-dasharray":"4 3",rx:4,cursor:"pointer"});
+      lclick.setAttribute("title","Click to rename lane");
+      (function(laneObj){
+        lclick.addEventListener("click",function(e){
+          e.stopPropagation();
+          var newName=prompt("Rename lane:",laneObj.lbl);
+          if(newName!==null&&newName.trim()!==""){laneObj.lbl=newName.trim();render(i);}
+        });
+      })(ln);
+      g.appendChild(lclick);
+    }
+  });
+
+  svg.appendChild(g);
+  renderConns(i,svg);
+  renderNodes(i,svg);
+}
+
+function renderConns(mi,svg){
+  svg.querySelectorAll(".clayer").forEach(function(e){e.remove();});
+  var layer=ns("g",{"class":"clayer"});
+  var nodes=MD[mi].nodes, conns=MD[mi].conns;
+  conns.forEach(function(c){
+    var fn=null,tn=null;
+    nodes.forEach(function(n){if(n.id===c.from)fn=n;if(n.id===c.to)tn=n;});
+    if(!fn||!tn) return;
+    var ep=edgePts(fn,tn);
+    var sc="#B4B2A9",mk="url(#a"+mi+")",da="none";
+    if(c.style==="ok"){sc="#1D9E75";mk="url(#ao"+mi+")";}
+    if(c.style==="err"){sc="#E24B4A";mk="url(#ae"+mi+")";}
+    if(c.style==="dashed"){da="6 3";}
+    var cg=ns("g",{"class":"conn-g"});
+    cg.dataset.id=c.id; cg.dataset.mi=mi;
+    if(SC&&SC.id===c.id&&SC.mi===mi) cg.classList.add("csel");
+    cg.appendChild(ns("line",{x1:ep.x1,y1:ep.y1,x2:ep.x2,y2:ep.y2,stroke:"transparent","stroke-width":14}));
+    cg.appendChild(ns("line",{x1:ep.x1,y1:ep.y1,x2:ep.x2,y2:ep.y2,stroke:sc,"stroke-width":1.4,"stroke-dasharray":da,"marker-end":mk}));
+    if(c.label){
+      var mx=(ep.x1+ep.x2)/2,my=(ep.y1+ep.y2)/2;
+      var rect=ns("rect",{x:mx-18,y:my-9,width:36,height:14,rx:3,fill:"#fff",opacity:0.85});
+      var lt=ns("text",{x:mx,y:my-2,"class":"edge-l",fill:sc});lt.textContent=c.label;
+      cg.appendChild(rect);cg.appendChild(lt);
+    }
+    (function(connId){
+      cg.addEventListener("click",function(e){
+        if(!EM||LM) return;
+        e.stopPropagation();
+        SC={id:connId,mi:mi};SN=null;render(mi);openConnOv(mi,connId);
+      });
+    })(c.id);
+    layer.appendChild(cg);
+  });
+  svg.appendChild(layer);
+}
+
+function edgePts(f,t){
+  var fx=f.x+f.w/2,fy=f.y+f.h/2,tx=t.x+t.w/2,ty=t.y+t.h/2;
+  var dx=tx-fx,dy=ty-fy;
+  var x1,y1,x2,y2;
+  if(Math.abs(dx)>=Math.abs(dy)){
+    x1=dx>0?f.x+f.w:f.x; y1=fy; x2=dx>0?t.x:t.x+t.w; y2=ty;
+  }else{
+    x1=fx; y1=dy>0?f.y+f.h:f.y; x2=tx; y2=dy>0?t.y:t.y+t.h;
+  }
+  return{x1:x1,y1:y1,x2:x2,y2:y2};
+}
+
+function renderNodes(mi,svg){
+  svg.querySelectorAll(".nlayer").forEach(function(e){e.remove();});
+  var layer=ns("g",{"class":"nlayer"});
+  MD[mi].nodes.forEach(function(node){
+    var c=CLR[node.color]||CLR.purple;
+    var sh=node.shape||"rect";
+    var cx=node.x+node.w/2, cy=node.y+node.h/2;
+    var cg=ns("g",{"class":"node-g"});
+    cg.dataset.id=node.id; cg.dataset.mi=mi;
+    if(SN&&SN.id===node.id&&SN.mi===mi) cg.classList.add("sel");
+    if(CS&&CS.id===node.id&&CS.mi===mi) cg.classList.add("csrc");
+    if(dragNode&&dragNode.node.id===node.id&&dragNode.mi===mi) cg.classList.add("dragging");
+
+    var bg;
+    if(sh==="diamond"){
+      bg=ns("polygon",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,
+        points:cx+","+node.y+" "+(node.x+node.w)+","+cy+" "+cx+","+(node.y+node.h)+" "+node.x+","+cy});
+    }else if(sh==="circle"){
+      bg=ns("circle",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,cx:cx,cy:cy,r:Math.min(node.w,node.h)/2-2});
+    }else if(sh==="pill"){
+      bg=ns("rect",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,x:node.x,y:node.y,width:node.w,height:node.h,rx:node.h/2});
+    }else if(sh==="hexagon"){
+      var q=node.w*0.18;
+      bg=ns("polygon",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,
+        points:(cx-q)+","+node.y+" "+(cx+q)+","+node.y+" "+(node.x+node.w)+","+cy+" "+(cx+q)+","+(node.y+node.h)+" "+(cx-q)+","+(node.y+node.h)+" "+node.x+","+cy});
+    }else if(sh==="parallelogram"){
+      var sk=14;
+      bg=ns("polygon",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,
+        points:(node.x+sk)+","+node.y+" "+(node.x+node.w)+","+node.y+" "+(node.x+node.w-sk)+","+(node.y+node.h)+" "+node.x+","+(node.y+node.h)});
+    }else if(sh==="terminal"){
+      bg=ns("rect",{"class":"nbg",fill:c.st,stroke:c.st,"stroke-width":0.9,x:node.x,y:node.y,width:node.w,height:node.h,rx:node.h/2});
+    }else if(sh==="sharp"){
+      bg=ns("rect",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,x:node.x,y:node.y,width:node.w,height:node.h,rx:0});
+    }else{
+      bg=ns("rect",{"class":"nbg",fill:c.bg,stroke:c.st,"stroke-width":0.9,x:node.x,y:node.y,width:node.w,height:node.h,rx:8});
+    }
+    cg.appendChild(bg);
+
+    var isTerm=sh==="terminal";
+    var tf=isTerm?c.sub:c.tx;
+    var sf=isTerm?"rgba(255,255,255,0.8)":c.sub;
+    var ty2=node.sub&&node.sub.trim()!=""?cy-8:cy;
+    var tt=ns("text",{x:cx,y:ty2,"class":"node-t",fill:tf});tt.textContent=node.title;cg.appendChild(tt);
+    if(node.sub&&node.sub.trim()!=""){
+      var st=ns("text",{x:cx,y:cy+9,"class":"node-s",fill:sf});st.textContent=node.sub;cg.appendChild(st);
+    }
+
+    // Events
+    (function(nodeId){
+      cg.addEventListener("mousedown",function(e){
+        if(!EM||LM) return;
+        e.stopPropagation();
+        var nd=MD[mi].nodes.find(function(x){return x.id===nodeId;});
+        if(!nd) return;
+        var svg2=document.getElementById("svg-"+mi);
+        var pt=svgPoint(svg2,e);
+        dragNode={node:nd,mi:mi};
+        dragOffX=pt.x-nd.x;
+        dragOffY=pt.y-nd.y;
+        document.body.style.cursor="grabbing";
+      });
+      cg.addEventListener("click",function(e){
+        e.stopPropagation();
+        if(dragNode) return; // was a drag
+        if(LM){handleLink(mi,nodeId);return;}
+        if(!EM) return;
+        SN={id:nodeId,mi:mi};SC=null;render(mi);openNodeOv(mi,nodeId,false);
+      });
+    })(node.id);
+
+    layer.appendChild(cg);
+  });
+  svg.appendChild(layer);
+}
+
+// ── Link mode ───────────────────────────────────────────────────
+function handleLink(mi,nid){
+  if(!CS){CS={id:nid,mi:mi};render(mi);}
+  else if(CS.id===nid){CS=null;render(mi);}
+  else{
+    MD[mi].conns.push({id:"c"+Date.now(),from:CS.id,to:nid,label:"",style:"normal"});
+    CS=null;render(mi);
+  }
+}
+
+// ── Toggle modes ─────────────────────────────────────────────────
+function toggleEdit(){
+  EM=!EM;
+  if(!EM){LM=false;CS=null;dragNode=null;}
+  document.body.classList.toggle("edit-on",EM);
+  document.body.classList.toggle("clink-on",false);
+  // Enable/disable tab label editing
+  document.querySelectorAll(".tab-label").forEach(function(inp){inp.readOnly=!EM;});
+  document.getElementById("badgeE").style.display=EM?"inline-flex":"none";
+  document.getElementById("btnLink").style.display=EM?"inline-flex":"none";
+  document.getElementById("btnSave").style.display=EM?"inline-flex":"none";
+  document.getElementById("btnAddNode").style.display=EM?"inline-flex":"none";
+  document.getElementById("btnEdit").classList.toggle("on",EM);
+  document.getElementById("hint").innerHTML=EM
+    ?"<b>Drag</b> nodes between lanes &middot; <b>Click</b> node to edit &middot; <b>Click</b> lane label to rename &middot; <b>Click</b> tab name to rename"
+    :"Click <b>Edit Mode</b> to edit tabs, lanes, nodes &amp; connections";
+  render(AM);
+}
+
+function toggleLink(){
+  if(!EM) return;
+  LM=!LM;CS=null;
+  document.body.classList.toggle("clink-on",LM);
+  document.getElementById("badgeC").style.display=LM?"inline-flex":"none";
+  document.getElementById("btnLink").classList.toggle("on",LM);
+  render(AM);
+}
+
+// ── Node modal ───────────────────────────────────────────────────
+function buildLanePills(mi,selectedLane){
+  var cont=document.getElementById("lanePills");
+  cont.innerHTML="";
+  MD[mi].lanes.forEach(function(ln){
+    var d=document.createElement("div");
+    d.className="lpill"+(ln.id===selectedLane?" on":"");
+    d.textContent=ln.lbl;
+    d.dataset.lane=ln.id;
+    d.onclick=function(){
+      PLANE=ln.id;
+      cont.querySelectorAll(".lpill").forEach(function(x){x.classList.remove("on");});
+      d.classList.add("on");
+    };
+    cont.appendChild(d);
+  });
+}
+
+function openAddNode(){
+  isAddMode=true;
+  PLANE="l1";PS="rect";PC="blue";
+  document.getElementById("nodeOvTitle").textContent="Add New Node";
+  document.getElementById("iTitle").value="New Node";
+  document.getElementById("iSub").value="";
+  document.getElementById("btnDeleteNode").style.display="none";
+  document.querySelectorAll(".sopt").forEach(function(el){el.classList.toggle("on",el.dataset.s===PS);});
+  document.querySelectorAll(".csw").forEach(function(el){el.classList.toggle("on",el.dataset.c===PC);});
+  buildLanePills(AM,"l1");
+  document.getElementById("nodeOv").classList.add("open");
+}
+
+function openNodeOv(mi,nid,isAdd){
+  isAddMode=false;
+  var n=MD[mi].nodes.find(function(x){return x.id===nid;});
+  if(!n) return;
+  document.getElementById("nodeOvTitle").textContent="Edit Node";
+  document.getElementById("iTitle").value=n.title||"";
+  document.getElementById("iSub").value=n.sub||"";
+  PS=n.shape||"rect";PC=n.color||"blue";PLANE=n.lane||"l1";
+  document.querySelectorAll(".sopt").forEach(function(el){el.classList.toggle("on",el.dataset.s===PS);});
+  document.querySelectorAll(".csw").forEach(function(el){el.classList.toggle("on",el.dataset.c===PC);});
+  document.getElementById("btnDeleteNode").style.display="inline-flex";
+  buildLanePills(mi,PLANE);
+  document.getElementById("nodeOv").classList.add("open");
+}
+
+function closeNodeOv(){document.getElementById("nodeOv").classList.remove("open");isAddMode=false;}
+
+function pickShape(el,s){PS=s;document.querySelectorAll(".sopt").forEach(function(x){x.classList.remove("on");});el.classList.add("on");}
+function pickColor(el,c){PC=c;document.querySelectorAll(".csw").forEach(function(x){x.classList.remove("on");});el.classList.add("on");}
+
+function applyNode(){
+  var title=document.getElementById("iTitle").value.trim()||"Node";
+  var sub=document.getElementById("iSub").value.trim();
+  if(isAddMode){
+    // Place in lane center
+    var lane=MD[AM].lanes.find(function(l){return l.id===PLANE;})||MD[AM].lanes[0];
+    var newId="n"+Date.now();
+    // x: place after last node horizontally, or default
+    var maxX=140;
+    MD[AM].nodes.forEach(function(nd){if(nd.x>maxX)maxX=nd.x;});
+    var nx=Math.min(maxX+170,SW-170);
+    var ny=lane.y+Math.round((lane.h-52)/2);
+    MD[AM].nodes.push({id:newId,lane:PLANE,x:nx,y:ny,w:148,h:52,shape:PS,color:PC,title:title,sub:sub});
+    closeNodeOv();render(AM);
+  }else{
+    if(!SN) return;
+    var n=MD[SN.mi].nodes.find(function(x){return x.id===SN.id;});
+    if(!n) return;
+    n.title=title;n.sub=sub;n.shape=PS;n.color=PC;
+    // Move to new lane
+    if(PLANE&&PLANE!==n.lane){
+      var newLane=MD[SN.mi].lanes.find(function(l){return l.id===PLANE;});
+      if(newLane){n.lane=PLANE;n.y=newLane.y+Math.round((newLane.h-n.h)/2);}
+    }
+    closeNodeOv();render(SN.mi);
+  }
+}
+
+function deleteNode(){
+  if(!SN) return;
+  var mi=SN.mi,nid=SN.id;
+  MD[mi].nodes=MD[mi].nodes.filter(function(x){return x.id!==nid;});
+  MD[mi].conns=MD[mi].conns.filter(function(x){return x.from!==nid&&x.to!==nid;});
+  SN=null;closeNodeOv();render(mi);
+}
+
+// ── Connection modal ─────────────────────────────────────────────
+function openConnOv(mi,cid){
+  var c=MD[mi].conns.find(function(x){return x.id===cid;});
+  if(!c) return;
+  document.getElementById("cLbl").value=c.label||"";
+  PCS=c.style||"normal";
+  document.querySelectorAll(".cso").forEach(function(el){el.classList.toggle("on",el.dataset.s===PCS);});
+  document.getElementById("connOv").classList.add("open");
+}
+function closeConnOv(){document.getElementById("connOv").classList.remove("open");}
+function pickCS(el,s){PCS=s;document.querySelectorAll(".cso").forEach(function(x){x.classList.remove("on");});el.classList.add("on");}
+function applyConn(){
+  if(!SC) return;
+  var c=MD[SC.mi].conns.find(function(x){return x.id===SC.id;});
+  if(!c) return;
+  c.label=document.getElementById("cLbl").value;c.style=PCS;
+  closeConnOv();render(SC.mi);
+}
+function delConn(){
+  if(!SC) return;
+  MD[SC.mi].conns=MD[SC.mi].conns.filter(function(x){return x.id!==SC.id;});
+  closeConnOv();SC=null;render(AM);
+}
+
+// ── Save / Export ────────────────────────────────────────────────
+function doSave(){
+  try{
+    localStorage.setItem("rbac_sw_v2",JSON.stringify({MD:MD,MOD_NAMES:MOD_NAMES}));
+    var b=document.getElementById("btnSave");
+    var orig=b.innerHTML;
+    b.textContent="Saved!";b.style.background="var(--g800)";
+    setTimeout(function(){b.innerHTML=orig;b.style.background="";},2000);
+  }catch(e){alert("Save failed: "+e.message);}
+}
+
+function doExport(){
+  var svg=document.getElementById("svg-"+AM);if(!svg) return;
+  var str=new XMLSerializer().serializeToString(svg);
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([str],{type:"image/svg+xml"}));
+  a.download="rbac_module_"+(AM+1)+"_"+MOD_NAMES[AM].replace(/\s+/g,"_")+".svg";
+  a.click();
+}
+
+// ── Load & Init ──────────────────────────────────────────────────
+try{
+  var saved=localStorage.getItem("rbac_sw_v2");
+  if(saved){
+    var parsed=JSON.parse(saved);
+    if(parsed.MD) MD=parsed.MD;
+    if(parsed.MOD_NAMES) MOD_NAMES=parsed.MOD_NAMES;
+  }
+}catch(e){}
+
+buildTabs();
+buildPanels();
+</script>
+<script src="nav.js?v=1" defer></script>
+</body>
+</html>
