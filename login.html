@@ -105,7 +105,18 @@ const SUPABASE_URL = 'https://kcjslemxrwtqvprdphsr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjanNsZW14cnd0cXZwcmRwaHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMDU4MTgsImV4cCI6MjA5NzY4MTgxOH0.Tw5EV8SK3nq8DEj8UBPTsONStcNuaOsuvgyMtPpupSU';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const trackerUrl = 'https://zarifah1710-ai.github.io/AInativeprojecttracker-/';
+/* Where we send people once they are signed in.
+
+   This points at the repo ROOT, which is now the landing page
+   (index.html) — so after sign-in you land on the menu and choose
+   a tool. The tracker itself lives at tracker.html.
+
+   IMPORTANT: do not change this to tracker.html without also adding
+   that URL to Supabase → Authentication → URL Configuration →
+   Redirect URLs. It is used as the OAuth redirectTo below, and
+   Supabase rejects any redirect target that is not on that
+   allowlist — sign-in would fail for everyone. */
+const homeUrl = 'https://zarifah1710-ai.github.io/AInativeprojecttracker-/';
 
 (async () => {
   const loginShell = document.getElementById('login-shell');
@@ -113,13 +124,13 @@ const trackerUrl = 'https://zarifah1710-ai.github.io/AInativeprojecttracker-/';
   const googleBtn = document.getElementById('google-btn');
   const errorMsg = document.getElementById('error-msg');
 
-  // If already signed in, redirect to tracker immediately
+  // If already signed in, skip the login screen and go to the menu
   loading.style.display = 'block';
   loginShell.style.display = 'none';
 
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
-    window.location.href = trackerUrl;
+    window.location.href = homeUrl;
     return;
   }
 
@@ -133,7 +144,7 @@ const trackerUrl = 'https://zarifah1710-ai.github.io/AInativeprojecttracker-/';
 
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: trackerUrl }
+      options: { redirectTo: homeUrl }
     });
 
     if (error) {
