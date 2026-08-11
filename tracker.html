@@ -1199,6 +1199,10 @@ function showToast(msg) {
   const { data: { session } } = await sb.auth.getSession();
 
   if (!session?.user) {
+    /* Remember that the tracker is where you were trying to go. The
+       landing page reads this after sign-in completes and forwards you
+       here, instead of leaving you back on the menu. */
+    try { sessionStorage.setItem('ws-after-login', 'tracker.html'); } catch (e) {}
     window.location.replace(loginUrl);
     return;
   }

@@ -184,7 +184,7 @@ footer{
 <div class="app-hdr">
   <!-- EDIT ME: workspace name -->
   <div class="logo">Project Workspace</div>
-  <div class="hdr-note">Choose a tool to get started</div>
+  <div class="hdr-note" id="hdr-note">Choose a tool to get started</div>
 </div>
 
 <main>
@@ -285,6 +285,68 @@ footer{
 
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+<!-- ============================================================
+     SIGN-IN COMPLETION — do not remove.
+
+     Google sends people back to THIS page after sign-in, with the
+     auth token in the URL. Creating a Supabase client here is what
+     exchanges that token for a saved session (detectSessionInUrl is
+     on by default).
+
+     Without this script the token is never exchanged, so no session
+     is ever stored, and clicking through to tracker.html bounces
+     straight back to the login page in an endless loop.
+
+     If you ever change login.html's redirectTo, whichever page it
+     points at must create a Supabase client like this.
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(async () => {
+  const note = document.getElementById('hdr-note');
+
+  /* Same publishable anon key used by login.html and tracker.html.
+     It is safe in client code — row level security is what protects
+     the data, not this key. */
+  const SUPABASE_URL = 'https://kcjslemxrwtqvprdphsr.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjanNsZW14cnd0cXZwcmRwaHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMDU4MTgsImV4cCI6MjA5NzY4MTgxOH0.Tw5EV8SK3nq8DEj8UBPTsONStcNuaOsuvgyMtPpupSU';
+
+  /* If the CDN is blocked, the menu must still work — so this whole
+     block fails soft rather than breaking the page. */
+  if (typeof supabase === 'undefined') {
+    console.warn('Supabase library did not load; sign-in state unknown.');
+    return;
+  }
+
+  try {
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // This call is what consumes the token sitting in the URL.
+    const { data: { session } } = await sb.auth.getSession();
+
+    if (session?.user) {
+      const email = session.user.email || 'Signed in';
+      note.textContent = 'Signed in as ' + email;
+
+      /* If you were sent here by a tool that needed sign-in, carry on
+         to where you were actually going. Consumed with removeItem
+         first, so a still-missing session can never loop. */
+      const pending = sessionStorage.getItem('ws-after-login');
+      if (pending) {
+        sessionStorage.removeItem('ws-after-login');
+        window.location.replace(pending);
+        return;
+      }
+    } else {
+      note.innerHTML = '<a href="login.html" style="color:#AFA9EC">Sign in</a>' +
+                       ' to use the tracker';
+    }
+  } catch (err) {
+    console.warn('Sign-in check failed:', err.message);
+  }
+})();
 </script>
 
 <script src="nav.js?v=1" defer></script>
