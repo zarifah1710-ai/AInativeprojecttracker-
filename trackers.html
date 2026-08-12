@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trackers · Project Workspace</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+:root{
+  --p50:#EEEDFE; --p200:#AFA9EC; --p400:#7F77DD; --p600:#534AB7; --p800:#3C3489;
+  --b50:#E6F1FB; --b400:#378ADD; --b600:#185FA5; --b800:#0C447C;
+  --r50:#FCEBEB; --r400:#E24B4A; --r600:#A32D2D;
+  --gr50:#F1EFE8; --gr100:#D3D1C7; --gr400:#888780; --gr600:#5F5E5A; --gr800:#444441;
+  --navy:#26215C;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{font-family:"DM Sans",sans-serif;background:#f7f6f2;color:#1a1a18;
+     min-height:100vh;display:flex;flex-direction:column}
+
+.app-hdr{background:var(--navy);padding:14px 22px;display:flex;align-items:center;
+         justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.hdr-back{flex:none;display:inline-flex;align-items:center;color:#fff;text-decoration:none;
+          font-size:12px;font-weight:500;background:rgba(255,255,255,.14);padding:5px 11px;
+          border-radius:7px;white-space:nowrap;transition:background .15s}
+.hdr-back:hover{background:rgba(255,255,255,.28)}
+.logo{font-size:15px;font-weight:600;color:#fff}
+.hdr-note{font-size:11px;color:var(--p200)}
+
+main{flex:1;width:100%;max-width:960px;margin-inline:auto;
+     padding:clamp(28px,6vw,52px) 22px 48px}
+
+.eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.12em;
+         text-transform:uppercase;color:var(--gr400);margin-bottom:12px}
+h1{font-size:clamp(22px,4vw,30px);font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+.lede{font-size:14.5px;color:var(--gr600);max-width:56ch;line-height:1.6;
+      margin-bottom:clamp(24px,4vw,36px)}
+
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(268px,1fr))}
+
+/* ---------- a tracker card ---------- */
+.card{position:relative;display:flex;flex-direction:column;background:#fff;
+      border:1px solid var(--gr100);border-radius:14px;padding:20px;
+      transition:border-color .18s,transform .18s,box-shadow .18s}
+.card:hover{border-color:var(--p400);transform:translateY(-2px);
+            box-shadow:0 10px 26px -18px rgba(38,33,92,.5)}
+.card-title{font-size:15.5px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px;
+            word-break:break-word}
+.card-sub{font-size:12.5px;color:var(--gr600);line-height:1.5;margin-bottom:14px;
+          word-break:break-word}
+.card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chip{font-size:10.5px;color:var(--gr600);background:var(--gr50);
+      border:1px solid var(--gr100);border-radius:20px;padding:2px 9px;white-space:nowrap}
+.card-actions{margin-top:auto;display:flex;align-items:center;gap:8px}
+.open-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;
+          padding:8px 15px;border-radius:8px;background:var(--b600);color:#fff;
+          text-decoration:none;transition:background .15s}
+.open-btn:hover{background:var(--b800)}
+.icon-btn{all:unset;box-sizing:border-box;cursor:pointer;width:32px;height:32px;
+          display:inline-flex;align-items:center;justify-content:center;border-radius:8px;
+          color:var(--gr400);transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--gr50);color:var(--gr800)}
+.icon-btn.danger:hover{background:var(--r50);color:var(--r600)}
+.icon-btn:focus-visible{outline:2px solid var(--p400);outline-offset:1px}
+
+/* ---------- the "new tracker" card ---------- */
+.newcard{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;gap:10px;min-height:190px;
+         background:transparent;border:2px dashed var(--gr100);border-radius:14px;
+         padding:20px;color:var(--gr600);text-align:center;
+         transition:border-color .18s,background .18s,color .18s}
+.newcard:hover{border-color:var(--p400);background:var(--p50);color:var(--p600)}
+.newcard:focus-visible{outline:2px solid var(--p400);outline-offset:2px}
+.newcard .plus{width:38px;height:38px;border-radius:50%;border:2px solid currentColor;
+               display:flex;align-items:center;justify-content:center;font-size:20px;
+               line-height:1;font-weight:300}
+.newcard .t{font-size:13.5px;font-weight:600}
+.newcard .s{font-size:11.5px;opacity:.75;max-width:24ch;line-height:1.45}
+
+/* ---------- states ---------- */
+.state{padding:44px 22px;text-align:center;color:var(--gr600);font-size:14px}
+.state.err{color:var(--r600);background:var(--r50);border:1px solid var(--r400);
+           border-radius:12px;text-align:left;padding:18px 20px;line-height:1.6}
+.state.err code{font-family:"DM Mono",monospace;font-size:12px;background:#fff;
+                padding:1px 5px;border-radius:4px}
+
+footer{border-top:1px solid var(--gr100);padding:18px 22px;font-size:12px;
+       color:var(--gr400);text-align:center}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.card:hover{transform:none}}
+</style>
+</head>
+<body>
+
+<div class="app-hdr">
+  <div class="hdr-left">
+    <a class="hdr-back" href="index.html" title="Back to menu">&#8592; Menu</a>
+    <div class="logo">Project Progress Trackers</div>
+  </div>
+  <div class="hdr-note" id="hdr-note"></div>
+</div>
+
+<main>
+  <p class="eyebrow">Trackers</p>
+  <h1>Your trackers</h1>
+  <p class="lede">
+    Each tracker is its own grid, with its own modules, columns and progress
+    values. Open one to work on it, or start a new one.
+  </p>
+
+  <div id="content">
+    <div class="state">Loading your trackers…</div>
+  </div>
+</main>
+
+<footer>&copy; <span id="year">2026</span> &middot; Project Workspace</footer>
+
+<script>
+/* ====================================================================
+   Tracker listing.
+
+   This page deliberately does NOT know how to build a tracker's inner
+   structure (stages, columns, the 22 starter modules). It creates the
+   trackers row and nothing else; tracker.html notices the tracker has
+   no stages yet and furnishes it. That keeps the starter lists defined
+   in exactly one place instead of drifting apart in two.
+   ==================================================================== */
+
+const SUPABASE_URL = 'https://kcjslemxrwtqvprdphsr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjanNsZW14cnd0cXZwcmRwaHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMDU4MTgsImV4cCI6MjA5NzY4MTgxOH0.Tw5EV8SK3nq8DEj8UBPTsONStcNuaOsuvgyMtPpupSU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/* Published so the shared sidebar (nav.js) can offer Sign out. */
+window.sb = sb;
+
+const loginUrl = 'https://zarifah1710-ai.github.io/AInativeprojecttracker-/login.html';
+
+let currentUser = null;
+const content = document.getElementById('content');
+
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* Anything that reaches the page as text goes through this first —
+   a tracker named with a < would otherwise break the markup. */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-GB',
+      { day:'numeric', month:'short', year:'numeric' });
+  } catch (e) { return ''; }
+}
+
+/* ── Auth guard — same shape as tracker.html ── */
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+
+  if (!session?.user) {
+    try { sessionStorage.setItem('ws-after-login', 'trackers.html'); } catch (e) {}
+    window.location.replace(loginUrl);
+    return;
+  }
+
+  currentUser = session.user;
+  const email = currentUser.email || 'User';
+  document.getElementById('hdr-note').textContent = email;
+
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') window.location.replace(loginUrl);
+  });
+
+  await render();
+})();
+
+
+/* ── Load and draw ── */
+async function render() {
+  content.innerHTML = '<div class="state">Loading your trackers…</div>';
+
+  const { data: trackers, error } = await sb.from('trackers')
+    .select('*').order('position').order('created_at');
+
+  if (error) {
+    content.innerHTML =
+      '<div class="state err"><b>Could not load your trackers.</b><br>' +
+      esc(error.message) + '</div>';
+    return;
+  }
+
+  /* How many progress values each tracker holds. Purely informational,
+     and it must not be able to break the page — if 05-multi-tracker.sql
+     has not been run yet there is no tracker_id column to group by, so
+     this fails and we simply show no counts. */
+  const counts = {};
+  try {
+    const { data: rows } = await sb.from('progress').select('tracker_id');
+    (rows || []).forEach(r => {
+      if (r.tracker_id) counts[r.tracker_id] = (counts[r.tracker_id] || 0) + 1;
+    });
+  } catch (e) { /* counts stay empty */ }
+
+  const cards = (trackers || []).map(t => {
+    const title = t.title || t.name || 'Untitled tracker';
+    const n = counts[t.id];
+    return '' +
+      '<div class="card">' +
+        '<div class="card-title">' + esc(title) + '</div>' +
+        '<div class="card-sub">' + esc(t.subtitle || '') + '</div>' +
+        '<div class="card-meta">' +
+          (n != null ? '<span class="chip">' + n + ' values</span>' : '') +
+          (t.created_at ? '<span class="chip">Created ' + esc(fmtDate(t.created_at)) + '</span>' : '') +
+        '</div>' +
+        '<div class="card-actions">' +
+          '<a class="open-btn" href="tracker.html?id=' + encodeURIComponent(t.id) + '">' +
+            'Open tracker' +
+            '<svg width="12" height="12" viewBox="0 0 12 12" fill="none">' +
+              '<path d="M2 6h8M7 3l3 3-3 3" stroke="#fff" stroke-width="1.5" ' +
+                    'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</a>' +
+          '<button class="icon-btn js-rename" data-id="' + esc(t.id) + '" ' +
+                  'data-name="' + esc(title) + '" title="Rename">' +
+            '<svg width="15" height="15" viewBox="0 0 15 15" fill="none">' +
+              '<path d="M10.5 1.8l2.7 2.7L4.6 13H1.9v-2.7L10.5 1.8z" stroke="currentColor" ' +
+                    'stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</button>' +
+          '<button class="icon-btn danger js-delete" data-id="' + esc(t.id) + '" ' +
+                  'data-name="' + esc(title) + '" title="Delete">' +
+            '<svg width="15" height="15" viewBox="0 0 15 15" fill="none">' +
+              '<path d="M2.5 4h10M6 4V2.5h3V4M3.8 4l.6 8.2a1 1 0 001 .8h4.2a1 1 0 001-.8L11.2 4" ' +
+                    'stroke="currentColor" stroke-width="1.3" stroke-linecap="round" ' +
+                    'stroke-linejoin="round"/></svg>' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+
+  content.innerHTML =
+    '<div class="grid">' + cards +
+      '<button class="newcard" id="new-btn">' +
+        '<span class="plus">+</span>' +
+        '<span class="t">Create new tracker</span>' +
+        '<span class="s">A fresh grid with the starter modules and columns</span>' +
+      '</button>' +
+    '</div>';
+
+  document.getElementById('new-btn').addEventListener('click', createTracker);
+  content.querySelectorAll('.js-rename').forEach(b =>
+    b.addEventListener('click', () => renameTracker(b.dataset.id, b.dataset.name)));
+  content.querySelectorAll('.js-delete').forEach(b =>
+    b.addEventListener('click', () => deleteTracker(b.dataset.id, b.dataset.name)));
+}
+
+
+/* ── Create ──
+   Only the trackers row. tracker.html seeds the rest on first open. */
+async function createTracker() {
+  const name = prompt('Name for the new tracker:', 'New tracker');
+  if (name === null) return;
+  const clean = name.trim() || 'New tracker';
+
+  const btn = document.getElementById('new-btn');
+  btn.disabled = true;
+  btn.querySelector('.t').textContent = 'Creating…';
+
+  /* Put it last. max(position)+1 rather than the row count, so deleting
+     a tracker can never make two share a position. */
+  const { data: existing } = await sb.from('trackers')
+    .select('position').order('position', { ascending: false }).limit(1);
+  const nextPos = existing && existing.length ? (existing[0].position + 1) : 0;
+
+  const { data: created, error } = await sb.from('trackers')
+    .insert([{
+      user_id:  currentUser.id,
+      name:     clean,
+      title:    clean,
+      subtitle: 'Create your own progress tracker',
+      position: nextPos
+    }])
+    .select().single();
+
+  if (error) {
+    alert('Could not create the tracker:\n\n' + error.message);
+    btn.disabled = false;
+    btn.querySelector('.t').textContent = 'Create new tracker';
+    return;
+  }
+
+  window.location.href = 'tracker.html?id=' + encodeURIComponent(created.id);
+}
+
+
+/* ── Rename ── */
+async function renameTracker(id, current) {
+  const name = prompt('Rename tracker:', current);
+  if (name === null) return;
+  const clean = name.trim();
+  if (!clean || clean === current) return;
+
+  const { error } = await sb.from('trackers')
+    .update({ name: clean, title: clean }).eq('id', id);
+
+  if (error) { alert('Could not rename:\n\n' + error.message); return; }
+  await render();
+}
+
+
+/* ── Delete ──
+   stages, columns, modules and progress all reference trackers with
+   "on delete cascade", so removing the tracker removes everything under
+   it. That is a lot of work to lose to a stray click, hence typing the
+   name rather than a yes/no box. */
+async function deleteTracker(id, name) {
+  const typed = prompt(
+    'This permanently deletes "' + name + '" and every module, column and ' +
+    'progress value in it. This cannot be undone.\n\n' +
+    'Type the tracker name to confirm:');
+
+  if (typed === null) return;
+  if (typed.trim() !== name) {
+    alert('That did not match, so nothing was deleted.');
+    return;
+  }
+
+  const { error } = await sb.from('trackers').delete().eq('id', id);
+  if (error) { alert('Could not delete:\n\n' + error.message); return; }
+  await render();
+}
+</script>
+
+<script src="nav.js?v=2" defer></script>
+</body>
+</html>

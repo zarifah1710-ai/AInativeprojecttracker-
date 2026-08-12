@@ -141,7 +141,7 @@ body.edit-on .conn-g{cursor:pointer}
   <div style="display:flex;align-items:center;gap:12px">
     <!-- Back to the landing page. The left sidebar (nav.js) also does this,
          but an always-visible button means you never have to find the menu. -->
-    <a class="hdr-back" href="index.html" title="Back to menu">&#8592; Menu</a>
+    <a class="hdr-back" href="diagrams.html" title="Back to all diagrams">&#8592; Diagrams</a>
     <div class="logo">RBAC Swimlane Viewer and Editor</div>
   </div>
   <div class="hdr-right">
@@ -253,6 +253,9 @@ body.edit-on .conn-g{cursor:pointer}
   </div>
 </div>
 
+<!-- Storage rules live in one file, shared with diagrams.html.
+     No defer: the start-up code below reads from it immediately. -->
+<script src="diagram-store.js"></script>
 <script>
 var SW=1560, SH=780;
 
@@ -946,13 +949,19 @@ function delConn(){
 
 // ── Save / Export ────────────────────────────────────────────────
 function doSave(){
-  try{
-    localStorage.setItem("rbac_sw_v2",JSON.stringify({MD:MD,MOD_NAMES:MOD_NAMES}));
-    var b=document.getElementById("btnSave");
-    var orig=b.innerHTML;
-    b.textContent="Saved!";b.style.background="var(--g800)";
-    setTimeout(function(){b.innerHTML=orig;b.style.background="";},2000);
-  }catch(e){alert("Save failed: "+e.message);}
+  var b=document.getElementById("btnSave");
+  var orig=b.innerHTML;
+  /* DiagramStore.save returns false when the browser refuses to store
+     any more. Saying "Saved!" in that case would be a lie that costs
+     someone their work. */
+  var ok=DiagramStore.save(DIAGRAM_ID,{MD:MD,MOD_NAMES:MOD_NAMES});
+  if(!ok){
+    alert("Save failed — this browser's storage is full or blocked.\n\n"+
+          "Use Export SVG to get this diagram out before you lose it.");
+    return;
+  }
+  b.textContent="Saved!";b.style.background="var(--g800)";
+  setTimeout(function(){b.innerHTML=orig;b.style.background="";},2000);
 }
 
 function doExport(){
@@ -965,18 +974,38 @@ function doExport(){
 }
 
 // ── Load & Init ──────────────────────────────────────────────────
-try{
-  var saved=localStorage.getItem("rbac_sw_v2");
-  if(saved){
-    var parsed=JSON.parse(saved);
-    if(parsed.MD) MD=parsed.MD;
-    if(parsed.MOD_NAMES) MOD_NAMES=parsed.MOD_NAMES;
+/* Which diagram set is open. diagrams.html links here with ?id=.
+   Opening this page with no id keeps working: it falls back to the
+   first saved diagram, creating one if there are none at all. */
+var DIAGRAM_ID = new URLSearchParams(location.search).get("id");
+if(!DIAGRAM_ID || !DiagramStore.get(DIAGRAM_ID)){
+  if(DIAGRAM_ID){
+    /* An id that has no document behind it means the diagram was
+       deleted. Say so rather than silently opening a different one. */
+    console.warn("Diagram not found, opening the most recent instead:",DIAGRAM_ID);
   }
-}catch(e){}
+  DIAGRAM_ID = DiagramStore.ensureDefault();
+}
+
+var doc = DiagramStore.get(DIAGRAM_ID);
+if(doc){
+  if(doc.MD) MD = doc.MD;
+  if(doc.MOD_NAMES) MOD_NAMES = doc.MOD_NAMES;
+}
+
+/* Show which diagram you are editing — with several of them, the
+   header is the only way to tell them apart. */
+(function(){
+  var name = DiagramStore.nameOf(DIAGRAM_ID);
+  if(!name) return;
+  var el = document.querySelector(".logo");
+  if(el) el.textContent = name;
+  document.title = name + " · Swimlane Editor";
+})();
 
 buildTabs();
 buildPanels();
 </script>
-<script src="nav.js?v=1" defer></script>
+<script src="nav.js?v=2" defer></script>
 </body>
 </html>
