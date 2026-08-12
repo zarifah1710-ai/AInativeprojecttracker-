@@ -323,6 +323,10 @@ footer{
   try {
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    /* Published so the shared sidebar (nav.js) can offer Sign out
+       without creating a second client of its own. */
+    window.sb = sb;
+
     // This call is what consumes the token sitting in the URL.
     const { data: { session } } = await sb.auth.getSession();
 

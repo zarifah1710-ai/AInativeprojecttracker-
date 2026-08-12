@@ -114,6 +114,16 @@
       'opacity:0;transition:opacity .14s;flex-shrink:0}',
     '#ws-nav.ws-open #ws-foot{opacity:1}',
 
+    /* sign out — sits below the menu items, same shape as an item so the
+       rail stays a tidy column of icons when collapsed */
+    '#ws-signout{all:unset;box-sizing:border-box;display:flex;align-items:center;',
+      'gap:12px;min-height:44px;padding:9px 15px;cursor:pointer;color:#cfcbe8;',
+      'flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);',
+      'transition:background .13s,color .13s}',
+    '#ws-signout:hover{background:rgba(226,75,74,.22);color:#fff}',
+    '#ws-signout:focus-visible{outline:2px solid #AFA9EC;outline-offset:-2px}',
+    '#ws-signout[hidden]{display:none}',
+
     /* On narrow screens the expanded panel floats over the page
        instead of squeezing it. */
     '@media (max-width:640px){',
@@ -159,9 +169,57 @@
       '<span id="ws-title">Menu</span>' +
     '</button>' +
     '<ul id="ws-list">' + itemsHTML + '</ul>' +
+    '<button id="ws-signout" type="button" hidden title="Sign out">' +
+      '<span class="ws-ico">' +
+        '<svg viewBox="0 0 20 20" aria-hidden="true">' +
+          '<path d="M8 3H5a1 1 0 00-1 1v12a1 1 0 001 1h3" fill="none" ' +
+                'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
+          '<path d="M12.5 6.5L16 10l-3.5 3.5M15.5 10H8" fill="none" ' +
+                'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" ' +
+                'stroke-linejoin="round"/>' +
+        '</svg>' +
+      '</span>' +
+      '<span class="ws-lbl">Sign out</span>' +
+    '</button>' +
     '<div id="ws-foot">Pick a tool, or press <b>Home</b> to see both options.</div>';
 
   document.body.appendChild(nav);
+
+  /* ---- sign out ------------------------------------------------
+     Only shown on pages that actually have a signed-in session. The
+     page publishes its own Supabase client as window.sb; we reuse it
+     rather than creating a second one, because two clients on one page
+     fight over the same stored session.
+
+     The swimlane editor has no sign-in at all, so no client, so no
+     button — which is correct, there is nothing to sign out of.     */
+  (function initSignOut() {
+    var btn = document.getElementById("ws-signout");
+
+    function wire(sb) {
+      sb.auth.getSession().then(function (res) {
+        if (!(res && res.data && res.data.session)) return;   // signed out
+        btn.hidden = false;
+        btn.addEventListener("click", function () {
+          btn.disabled = true;
+          btn.querySelector(".ws-lbl").textContent = "Signing out…";
+          sb.auth.signOut().then(function () {
+            window.location.replace("login.html");
+          });
+        });
+      }).catch(function () { /* leave hidden */ });
+    }
+
+    if (window.sb) { wire(window.sb); return; }
+
+    /* window.sb is published by an async block, so it may not exist yet
+       when this runs. Poll briefly, then give up rather than hang. */
+    var tries = 0;
+    var t = setInterval(function () {
+      if (window.sb) { clearInterval(t); wire(window.sb); }
+      else if (++tries > 40) { clearInterval(t); }   // ~4s
+    }, 100);
+  })();
 
   /* ---- open / close ------------------------------------------- */
   var toggle = document.getElementById("ws-toggle");

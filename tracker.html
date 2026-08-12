@@ -264,6 +264,9 @@ tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(
 const SUPABASE_URL = 'https://kcjslemxrwtqvprdphsr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjanNsZW14cnd0cXZwcmRwaHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMDU4MTgsImV4cCI6MjA5NzY4MTgxOH0.Tw5EV8SK3nq8DEj8UBPTsONStcNuaOsuvgyMtPpupSU';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/* Published so the shared sidebar (nav.js) can offer Sign out without
+   creating a second client of its own. */
+window.sb = sb;
 
 /* ── Grid structure ──
    COLS and STAGES used to be a fixed list typed in here. They are now
@@ -1213,15 +1216,11 @@ function showToast(msg) {
 
   const email = currentUser.email || 'User';
   const short = email.length > 24 ? email.slice(0, 22) + '…' : email;
+  /* Just who you are. Sign out now lives in the left sidebar (nav.js),
+     so it is in one place on every page instead of only this one. */
   authArea.innerHTML = `
     <span class="auth-user" title="${email}">👤 ${short}</span>
-    <button id="signout-btn" class="auth-btn">Sign out</button>
   `;
-
-  document.getElementById('signout-btn').addEventListener('click', async () => {
-    await sb.auth.signOut();
-    window.location.replace(loginUrl);
-  });
 
   const editBtn = document.getElementById('editBtn');
   const banner = document.getElementById('readonly-banner');
