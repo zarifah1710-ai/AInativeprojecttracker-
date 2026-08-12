@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagrams · Project Workspace</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+:root{
+  --p50:#EEEDFE; --p200:#AFA9EC; --p400:#7F77DD; --p600:#534AB7; --p800:#3C3489;
+  --a50:#FAEEDA; --a200:#EF9F27; --a600:#854F0B;
+  --r50:#FCEBEB; --r400:#E24B4A; --r600:#A32D2D;
+  --gr50:#F1EFE8; --gr100:#D3D1C7; --gr400:#888780; --gr600:#5F5E5A; --gr800:#444441;
+  --navy:#26215C;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{font-family:"DM Sans",sans-serif;background:#f7f6f2;color:#1a1a18;
+     min-height:100vh;display:flex;flex-direction:column}
+
+.app-hdr{background:var(--navy);padding:14px 22px;display:flex;align-items:center;
+         justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.hdr-back{flex:none;display:inline-flex;align-items:center;color:#fff;text-decoration:none;
+          font-size:12px;font-weight:500;background:rgba(255,255,255,.14);padding:5px 11px;
+          border-radius:7px;white-space:nowrap;transition:background .15s}
+.hdr-back:hover{background:rgba(255,255,255,.28)}
+.logo{font-size:15px;font-weight:600;color:#fff}
+
+main{flex:1;width:100%;max-width:960px;margin-inline:auto;
+     padding:clamp(28px,6vw,52px) 22px 48px}
+
+.eyebrow{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.12em;
+         text-transform:uppercase;color:var(--gr400);margin-bottom:12px}
+h1{font-size:clamp(22px,4vw,30px);font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+.lede{font-size:14.5px;color:var(--gr600);max-width:58ch;line-height:1.6;margin-bottom:18px}
+
+/* This page's data lives only in this browser. Saying so plainly beats
+   someone finding out when they open it on their phone. */
+.notice{display:flex;gap:11px;align-items:flex-start;background:var(--a50);
+        border:1px solid var(--a200);border-radius:11px;padding:13px 16px;
+        font-size:12.5px;line-height:1.55;color:var(--a600);
+        margin-bottom:clamp(22px,4vw,32px)}
+.notice b{font-weight:600}
+.notice .ico{flex:none;font-size:15px;line-height:1.3}
+
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(258px,1fr))}
+
+.card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--gr100);
+      border-radius:14px;padding:20px;transition:border-color .18s,transform .18s,box-shadow .18s}
+.card:hover{border-color:var(--p400);transform:translateY(-2px);
+            box-shadow:0 10px 26px -18px rgba(38,33,92,.5)}
+.card-title{font-size:15.5px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px;
+            word-break:break-word}
+.card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chip{font-size:10.5px;color:var(--gr600);background:var(--gr50);border:1px solid var(--gr100);
+      border-radius:20px;padding:2px 9px;white-space:nowrap}
+.card-actions{margin-top:auto;display:flex;align-items:center;gap:8px}
+.open-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;
+          padding:8px 15px;border-radius:8px;background:var(--p600);color:#fff;
+          text-decoration:none;transition:background .15s}
+.open-btn:hover{background:var(--p800)}
+.icon-btn{all:unset;box-sizing:border-box;cursor:pointer;width:32px;height:32px;
+          display:inline-flex;align-items:center;justify-content:center;border-radius:8px;
+          color:var(--gr400);transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--gr50);color:var(--gr800)}
+.icon-btn.danger:hover{background:var(--r50);color:var(--r600)}
+.icon-btn:focus-visible{outline:2px solid var(--p400);outline-offset:1px}
+
+.newcard{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;gap:10px;min-height:172px;
+         border:2px dashed var(--gr100);border-radius:14px;padding:20px;color:var(--gr600);
+         text-align:center;transition:border-color .18s,background .18s,color .18s}
+.newcard:hover{border-color:var(--p400);background:var(--p50);color:var(--p600)}
+.newcard:focus-visible{outline:2px solid var(--p400);outline-offset:2px}
+.newcard .plus{width:38px;height:38px;border-radius:50%;border:2px solid currentColor;
+               display:flex;align-items:center;justify-content:center;font-size:20px;
+               line-height:1;font-weight:300}
+.newcard .t{font-size:13.5px;font-weight:600}
+.newcard .s{font-size:11.5px;opacity:.75;max-width:24ch;line-height:1.45}
+
+footer{border-top:1px solid var(--gr100);padding:18px 22px;font-size:12px;
+       color:var(--gr400);text-align:center}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.card:hover{transform:none}}
+</style>
+</head>
+<body>
+
+<div class="app-hdr">
+  <div class="hdr-left">
+    <a class="hdr-back" href="index.html" title="Back to menu">&#8592; Menu</a>
+    <div class="logo">Swimlane Diagrams</div>
+  </div>
+</div>
+
+<main>
+  <p class="eyebrow">Diagrams</p>
+  <h1>Your swimlane diagrams</h1>
+  <p class="lede">
+    Each diagram is its own set of process flows, with its own tabs, lanes and
+    nodes. Open one to edit it, or start a new one.
+  </p>
+
+  <div class="notice">
+    <span class="ico">&#9888;</span>
+    <span>
+      <b>These are saved in this browser only.</b> Unlike the progress trackers,
+      diagrams are not stored in the database yet — they will not appear on
+      another device, and clearing your browsing data deletes them. Use
+      <b>Export SVG</b> inside a diagram to keep a copy.
+    </span>
+  </div>
+
+  <div id="content"></div>
+</main>
+
+<footer>&copy; <span id="year">2026</span> &middot; Project Workspace</footer>
+
+<!-- Storage rules shared with swimlane-editor.html -->
+<script src="diagram-store.js"></script>
+<script>
+const content = document.getElementById('content');
+document.getElementById('year').textContent = new Date().getFullYear();
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function fmtWhen(ms) {
+  if (!ms) return '';
+  try {
+    return new Date(ms).toLocaleDateString('en-GB',
+      { day:'numeric', month:'short', year:'numeric' });
+  } catch (e) { return ''; }
+}
+
+/* How many tabs a diagram holds — a cheap way to tell two apart when
+   the names are similar. Reads the document itself, so it is skipped
+   silently if that document is missing or unreadable. */
+function tabCount(id) {
+  const doc = DiagramStore.get(id);
+  if (!doc || !Array.isArray(doc.MOD_NAMES)) return null;
+  return doc.MOD_NAMES.length;
+}
+
+function render() {
+  const list = DiagramStore.list();
+
+  const cards = list.map(d => {
+    const n = tabCount(d.id);
+    return '' +
+      '<div class="card">' +
+        '<div class="card-title">' + esc(d.name || 'Untitled') + '</div>' +
+        '<div class="card-meta">' +
+          (n != null ? '<span class="chip">' + n + ' tabs</span>' : '') +
+          (d.updated ? '<span class="chip">Saved ' + esc(fmtWhen(d.updated)) + '</span>' : '') +
+        '</div>' +
+        '<div class="card-actions">' +
+          '<a class="open-btn" href="swimlane-editor.html?id=' + encodeURIComponent(d.id) + '">' +
+            'Open editor' +
+            '<svg width="12" height="12" viewBox="0 0 12 12" fill="none">' +
+              '<path d="M2 6h8M7 3l3 3-3 3" stroke="#fff" stroke-width="1.5" ' +
+                    'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</a>' +
+          '<button class="icon-btn js-rename" data-id="' + esc(d.id) + '" ' +
+                  'data-name="' + esc(d.name || '') + '" title="Rename">' +
+            '<svg width="15" height="15" viewBox="0 0 15 15" fill="none">' +
+              '<path d="M10.5 1.8l2.7 2.7L4.6 13H1.9v-2.7L10.5 1.8z" stroke="currentColor" ' +
+                    'stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</button>' +
+          '<button class="icon-btn danger js-delete" data-id="' + esc(d.id) + '" ' +
+                  'data-name="' + esc(d.name || '') + '" title="Delete">' +
+            '<svg width="15" height="15" viewBox="0 0 15 15" fill="none">' +
+              '<path d="M2.5 4h10M6 4V2.5h3V4M3.8 4l.6 8.2a1 1 0 001 .8h4.2a1 1 0 001-.8L11.2 4" ' +
+                    'stroke="currentColor" stroke-width="1.3" stroke-linecap="round" ' +
+                    'stroke-linejoin="round"/></svg>' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+
+  content.innerHTML =
+    '<div class="grid">' + cards +
+      '<button class="newcard" id="new-btn">' +
+        '<span class="plus">+</span>' +
+        '<span class="t">Create new diagram</span>' +
+        '<span class="s">A fresh set of swimlanes with the starter modules</span>' +
+      '</button>' +
+    '</div>';
+
+  document.getElementById('new-btn').addEventListener('click', createDiagram);
+  content.querySelectorAll('.js-rename').forEach(b =>
+    b.addEventListener('click', () => renameDiagram(b.dataset.id, b.dataset.name)));
+  content.querySelectorAll('.js-delete').forEach(b =>
+    b.addEventListener('click', () => deleteDiagram(b.dataset.id, b.dataset.name)));
+}
+
+/* Create the entry only. The editor writes the actual document the
+   first time you press Save, exactly like a new tracker. */
+function createDiagram() {
+  const name = prompt('Name for the new diagram:', 'New diagram');
+  if (name === null) return;
+  const id = DiagramStore.create(name.trim() || 'New diagram');
+  window.location.href = 'swimlane-editor.html?id=' + encodeURIComponent(id);
+}
+
+function renameDiagram(id, current) {
+  const name = prompt('Rename diagram:', current);
+  if (name === null) return;
+  const clean = name.trim();
+  if (!clean || clean === current) return;
+  DiagramStore.rename(id, clean);
+  render();
+}
+
+function deleteDiagram(id, name) {
+  const typed = prompt(
+    'This permanently deletes "' + name + '" and every lane, node and ' +
+    'connection in it. It is stored only in this browser, so there is no ' +
+    'copy anywhere else and this cannot be undone.\n\n' +
+    'Type the diagram name to confirm:');
+
+  if (typed === null) return;
+  if (typed.trim() !== name) {
+    alert('That did not match, so nothing was deleted.');
+    return;
+  }
+  DiagramStore.remove(id);
+  render();
+}
+
+render();
+</script>
+
+<script src="nav.js?v=2" defer></script>
+</body>
+</html>

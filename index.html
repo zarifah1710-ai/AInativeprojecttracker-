@@ -214,7 +214,7 @@ footer{
 
          Default below assumes (a).
          ============================================================ -->
-    <a class="opt opt-1" href="tracker.html">
+    <a class="opt opt-1" href="trackers.html">
       <div class="opt-icon">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <rect x="2"  y="12" width="4" height="8" rx="1.2" fill="#185FA5"/>
@@ -245,7 +245,7 @@ footer{
     <!-- ============================================================
          OPTION 2 — Swimlane viewer / editor
          ============================================================ -->
-    <a class="opt opt-2" href="swimlane-editor.html">
+    <a class="opt opt-2" href="diagrams.html">
       <div class="opt-icon">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <line x1="1" y1="7"  x2="21" y2="7"  stroke="#AFA9EC" stroke-width="1.1"/>
@@ -340,8 +340,13 @@ footer{
       const pending = sessionStorage.getItem('ws-after-login');
       if (pending) {
         sessionStorage.removeItem('ws-after-login');
-        window.location.replace(pending);
-        return;
+        /* Only ever forward to a page of ours. Nothing but our own code
+           writes this value, but validating costs nothing and stops a
+           stored string from ever becoming an open redirect. */
+        if (/^[a-z0-9-]+\.html(\?[\w=&%-]*)?$/i.test(pending)) {
+          window.location.replace(pending);
+          return;
+        }
       }
     } else {
       note.innerHTML = '<a href="login.html" style="color:#AFA9EC">Sign in</a>' +
@@ -353,6 +358,6 @@ footer{
 })();
 </script>
 
-<script src="nav.js?v=1" defer></script>
+<script src="nav.js?v=2" defer></script>
 </body>
 </html>

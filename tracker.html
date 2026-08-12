@@ -391,9 +391,27 @@ function escHtml(str) {
 
 /* ── Load the grid structure (stage groups and columns) ── */
 async function loadStructure() {
-  const { data: trackers, error: tErr } =
-    await sb.from('trackers').select('*').order('position').limit(1);
+  /* Which tracker are we opening? trackers.html and the sidebar both
+     link here with ?id=<uuid>. With no id we fall back to the first
+     one, which is exactly what this page did before multiple trackers
+     existed — so old bookmarks keep working. */
+  const wantedId = new URLSearchParams(location.search).get('id');
+
+  let query = sb.from('trackers').select('*');
+  query = wantedId
+    ? query.eq('id', wantedId)
+    : query.order('position').limit(1);
+
+  const { data: trackers, error: tErr } = await query;
   if (tErr) throw tErr;
+
+  /* An id that returns nothing means the tracker was deleted, or the
+     link belongs to another account. Say so rather than silently
+     opening a different tracker than the one that was asked for —
+     that would look like the data had changed by itself. */
+  if (wantedId && !(trackers && trackers.length)) {
+    throw new Error('That tracker no longer exists, or it belongs to another account.');
+  }
 
   /* No tracker yet means a brand new account — give it the starter
      structure so there is a header to look at. */
@@ -408,12 +426,25 @@ async function loadStructure() {
   APP_TITLE    = tracker.title    || DEFAULT_TITLE;
   APP_SUBTITLE = tracker.subtitle || DEFAULT_SUBTITLE;
 
-  const [stageRes, colRes] = await Promise.all([
+  let [stageRes, colRes] = await Promise.all([
     sb.from('stages').select('*').eq('tracker_id', TRACKER_ID).order('position'),
     sb.from('columns').select('*').eq('tracker_id', TRACKER_ID).order('position'),
   ]);
   if (stageRes.error) throw stageRes.error;
   if (colRes.error)   throw colRes.error;
+
+  /* A tracker with no stages is one that trackers.html just created —
+     it makes the row and leaves the furnishing to us, so the starter
+     lists stay defined in one file. Seed it, then read it back. */
+  if (!(stageRes.data || []).length) {
+    await seedStructureFor(TRACKER_ID);
+    [stageRes, colRes] = await Promise.all([
+      sb.from('stages').select('*').eq('tracker_id', TRACKER_ID).order('position'),
+      sb.from('columns').select('*').eq('tracker_id', TRACKER_ID).order('position'),
+    ]);
+    if (stageRes.error) throw stageRes.error;
+    if (colRes.error)   throw colRes.error;
+  }
 
   /* Modules are fetched separately and allowed to fail on their own.
      If 03-modules.sql hasn't been run yet, the table doesn't exist —
@@ -487,8 +518,19 @@ async function createStarterStructure() {
     .select().single();
   if (error) throw error;
 
+  await seedStructureFor(tracker.id);
+  return tracker;
+}
+
+/* Fill an existing, empty tracker with the starter stages, columns and
+   modules. Split out of createStarterStructure so that trackers.html can
+   create a bare tracker row and let this page furnish it — that keeps the
+   starter lists defined in exactly one file instead of two.
+
+   Structure only. No progress values are ever written here. */
+async function seedStructureFor(trackerId) {
   const { data: stages, error: sErr } = await sb.from('stages')
-    .insert(STARTER_STAGES.map(s => ({ ...s, tracker_id: tracker.id, user_id: currentUser.id })))
+    .insert(STARTER_STAGES.map(s => ({ ...s, tracker_id: trackerId, user_id: currentUser.id })))
     .select();
   if (sErr) throw sErr;
 
@@ -497,7 +539,7 @@ async function createStarterStructure() {
 
   const { error: cErr } = await sb.from('columns').insert(
     STARTER_COLUMNS.map(c => ({
-      tracker_id: tracker.id,
+      tracker_id: trackerId,
       user_id:    currentUser.id,
       stage_id:   stageIdByPosition[c.stage],
       col_key:    c.col_key,
@@ -513,7 +555,7 @@ async function createStarterStructure() {
      grid is only helpful once you can actually add rows to it. */
   const { error: mErr } = await sb.from('modules').insert(
     STARTER_MODULES.map((name, i) => ({
-      tracker_id: tracker.id,
+      tracker_id: trackerId,
       user_id:    currentUser.id,
       module_key: name,
       name:       name,
@@ -521,8 +563,6 @@ async function createStarterStructure() {
     }))
   );
   if (mErr) throw mErr;
-
-  return tracker;
 }
 
 /* ── The app title and description in the top-left ──
@@ -705,7 +745,10 @@ async function loadFromDB() {
     }
     buildBulkSelects();
 
-    const { data: rows, error } = await sb.from('progress').select('*');
+    /* Only this tracker's values. Before multiple trackers this fetched
+       every row you owned, which was the same thing — now it isn't. */
+    const { data: rows, error } = await sb.from('progress')
+      .select('*').eq('tracker_id', TRACKER_ID);
     if (error) throw error;
 
     data = blankGrid();
@@ -736,13 +779,19 @@ async function loadFromDB() {
    column instead of updating your own. */
 async function saveToDB(changes) {
   const rows = changes.map(c => ({
-    user_id: currentUser.id,
-    module:  c.mod,
-    col_key: c.col,
-    value:   c.to
+    user_id:    currentUser.id,
+    tracker_id: TRACKER_ID,
+    module:     c.mod,
+    col_key:    c.col,
+    value:      c.to
   }));
+  /* onConflict must name the columns of the unique index that actually
+     exists, which 05-multi-tracker.sql changed to
+     (tracker_id, module, col_key). If saving starts failing with a
+     "no unique constraint matching" error, that script has not been run
+     against this database yet. */
   const { error } = await sb.from('progress')
-    .upsert(rows, { onConflict: 'user_id,module,col_key' });
+    .upsert(rows, { onConflict: 'tracker_id,module,col_key' });
   if (error) throw error;
 }
 
@@ -1205,7 +1254,11 @@ function showToast(msg) {
     /* Remember that the tracker is where you were trying to go. The
        landing page reads this after sign-in completes and forwards you
        here, instead of leaving you back on the menu. */
-    try { sessionStorage.setItem('ws-after-login', 'tracker.html'); } catch (e) {}
+    /* Keep ?id= so you come back to the tracker you actually clicked,
+       not whichever one happens to be first. */
+    try {
+      sessionStorage.setItem('ws-after-login', 'tracker.html' + location.search);
+    } catch (e) {}
     window.location.replace(loginUrl);
     return;
   }
@@ -1269,6 +1322,6 @@ function showToast(msg) {
 })();
 </script>
 
-<script src="nav.js?v=1" defer></script>
+<script src="nav.js?v=2" defer></script>
 </body>
 </html>

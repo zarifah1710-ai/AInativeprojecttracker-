@@ -31,17 +31,23 @@
       icon: '<path d="M3 8.5L10 3l7 5.5V16a1 1 0 01-1 1h-4v-5H8v5H4a1 1 0 01-1-1V8.5z"/>'
     },
     {
-      href: "tracker.html",
+      href: "trackers.html",
       label: "Project Progress Tracker",
       hint: "Module progress across build, design and QA",
+      /* Pages that count as "inside" this item, for highlighting. */
+      alsoActiveOn: ["tracker.html"],
+      /* Children are loaded from the database at runtime — see
+         loadTrackerChildren() below. */
+      children: "trackers",
       icon: '<rect x="3" y="11" width="3.4" height="6" rx="1"/>' +
             '<rect x="8.3" y="7" width="3.4" height="10" rx="1"/>' +
             '<rect x="13.6" y="3" width="3.4" height="14" rx="1"/>'
     },
     {
-      href: "swimlane-editor.html",
+      href: "diagrams.html",
       label: "RBAC Swimlane Viewer and Editor",
       hint: "Draw and edit process flow diagrams",
+      alsoActiveOn: ["swimlane-editor.html"],
       icon: '<rect x="2.5" y="2.5" width="6" height="3.6" rx="1.1"/>' +
             '<rect x="11.5" y="8.2" width="6" height="3.6" rx="1.1"/>' +
             '<rect x="2.5" y="13.9" width="6" height="3.6" rx="1.1"/>' +
@@ -108,6 +114,42 @@
       'transition:opacity .14s}',
     '#ws-nav.ws-open .ws-lbl{opacity:1;white-space:normal}',
 
+    /* ---- child submenu (the list of trackers) ----
+       Hidden entirely while collapsed: 48px is too narrow to tell a
+       child apart from a parent, so the rail stays one flat icon list. */
+    '.ws-sub{list-style:none;margin:0;padding:0;display:none}',
+    '#ws-nav.ws-open .ws-sub{display:block}',
+    '.ws-child{display:flex;align-items:center;gap:9px;min-height:34px;',
+      'padding:6px 14px 6px 30px;color:#a9a3d0;text-decoration:none;',
+      'font-size:11.5px;line-height:1.3;position:relative;',
+      'transition:background .13s,color .13s}',
+    '.ws-child::before{content:"";position:absolute;left:22px;top:0;bottom:0;',
+      'width:1px;background:rgba(255,255,255,.13)}',
+    '.ws-child:hover{background:rgba(255,255,255,.07);color:#fff}',
+    '.ws-child:focus-visible{outline:2px solid #AFA9EC;outline-offset:-2px}',
+    '.ws-child.ws-active{color:#fff;background:rgba(175,169,236,.13)}',
+    '.ws-child.ws-active::before{background:#AFA9EC;width:2px}',
+    '.ws-child .ws-dot{flex:none;width:5px;height:5px;border-radius:50%;',
+      'background:currentColor;opacity:.55}',
+    '.ws-child span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+
+    /* the "+ New tracker" row at the end of the children */
+    '.ws-add{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:9px;',
+      'min-height:34px;padding:6px 14px 6px 30px;cursor:pointer;color:#8d87b8;',
+      'font-size:11.5px;position:relative;width:100%;',
+      'transition:background .13s,color .13s}',
+    '.ws-add::before{content:"";position:absolute;left:22px;top:0;bottom:0;',
+      'width:1px;background:rgba(255,255,255,.13)}',
+    '.ws-add:hover{background:rgba(255,255,255,.09);color:#fff}',
+    '.ws-add:focus-visible{outline:2px solid #AFA9EC;outline-offset:-2px}',
+    '.ws-add .ws-plus{flex:none;width:14px;height:14px;border-radius:50%;',
+      'border:1px solid currentColor;display:flex;align-items:center;',
+      'justify-content:center;font-size:11px;line-height:1}',
+    '.ws-sub .ws-empty{padding:6px 14px 6px 30px;font-size:11px;color:#7d77a8;',
+      'position:relative}',
+    '.ws-sub .ws-empty::before{content:"";position:absolute;left:22px;top:0;bottom:0;',
+      'width:1px;background:rgba(255,255,255,.13)}',
+
     /* footer hint, only visible when open */
     '#ws-foot{padding:12px 15px;border-top:1px solid rgba(255,255,255,.1);',
       'font-size:10.5px;line-height:1.45;color:#8d87b8;white-space:normal;',
@@ -146,7 +188,11 @@
   nav.setAttribute("aria-label", "Main navigation");
 
   var itemsHTML = ITEMS.map(function (it) {
-    var active = it.href === here;
+    /* A parent stays highlighted while you are on one of its inner
+       pages — otherwise opening a tracker would leave nothing lit. */
+    var active = it.href === here ||
+                 (it.alsoActiveOn || []).indexOf(here) !== -1;
+
     return '<li>' +
       '<a class="ws-item' + (active ? ' ws-active' : '') + '" href="' + it.href + '"' +
         ' title="' + it.label + ' — ' + it.hint + '"' +
@@ -155,7 +201,11 @@
           '<svg viewBox="0 0 20 20" aria-hidden="true">' + it.icon + '</svg>' +
         '</span>' +
         '<span class="ws-lbl">' + it.label + '</span>' +
-      '</a></li>';
+      '</a>' +
+      (it.children
+        ? '<ul class="ws-sub" id="ws-sub-' + it.children + '"></ul>'
+        : '') +
+      '</li>';
   }).join("");
 
   nav.innerHTML =
@@ -218,6 +268,114 @@
     var t = setInterval(function () {
       if (window.sb) { clearInterval(t); wire(window.sb); }
       else if (++tries > 40) { clearInterval(t); }   // ~4s
+    }, 100);
+  })();
+
+
+  /* ---- tracker submenu -----------------------------------------
+     Lists your trackers underneath "Project Progress Tracker", with a
+     row at the end to create another.
+
+     Same rules as sign-out: reuse the page's own Supabase client, stay
+     silent on pages that have none, and never let a failure here break
+     the menu itself — navigation matters more than the sub-list.     */
+  function escText(s) {
+    return String(s == null ? "" : s)
+      .replace(/[&<>"']/g, function (m) {
+        return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m];
+      });
+  }
+
+  (function initTrackerChildren() {
+    var box = document.getElementById("ws-sub-trackers");
+    if (!box) return;
+
+    /* Which tracker is open right now, so it can be highlighted. */
+    var openId = null;
+    try { openId = new URLSearchParams(location.search).get("id"); } catch (e) {}
+
+    function addRow() {
+      return '<li><button class="ws-add" type="button" id="ws-add-tracker">' +
+               '<span class="ws-plus">+</span>' +
+               '<span class="t">New tracker</span>' +
+             '</button></li>';
+    }
+
+    function wireAdd(sb) {
+      var btn = document.getElementById("ws-add-tracker");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var name = prompt("Name for the new tracker:", "New tracker");
+        if (name === null) return;
+        var clean = name.trim() || "New tracker";
+        btn.disabled = true;
+        btn.querySelector(".t").textContent = "Creating…";
+
+        sb.from("trackers").select("position")
+          .order("position", { ascending: false }).limit(1)
+          .then(function (res) {
+            var rows = (res && res.data) || [];
+            var pos = rows.length ? rows[0].position + 1 : 0;
+            return sb.from("trackers").insert([{
+              name: clean, title: clean,
+              subtitle: "Create your own progress tracker",
+              position: pos
+            }]).select().single();
+          })
+          .then(function (res) {
+            if (res.error) throw res.error;
+            /* tracker.html furnishes a brand new tracker on first open,
+               so going straight there is what completes the creation. */
+            window.location.href = "tracker.html?id=" +
+              encodeURIComponent(res.data.id);
+          })
+          .catch(function (err) {
+            alert("Could not create the tracker:\n\n" + (err.message || err));
+            btn.disabled = false;
+            btn.querySelector(".t").textContent = "New tracker";
+          });
+      });
+    }
+
+    function load(sb) {
+      sb.auth.getSession().then(function (s) {
+        if (!(s && s.data && s.data.session)) return;   // signed out: no list
+
+        return sb.from("trackers").select("id,title,name")
+          .order("position").order("created_at")
+          .then(function (res) {
+            if (res.error) throw res.error;
+            var list = res.data || [];
+
+            var html = list.map(function (t) {
+              var label = t.title || t.name || "Untitled";
+              var on = openId && t.id === openId;
+              return '<li><a class="ws-child' + (on ? " ws-active" : "") + '" ' +
+                     'href="tracker.html?id=' + encodeURIComponent(t.id) + '" ' +
+                     'title="' + escText(label) + '">' +
+                     '<span class="ws-dot"></span>' +
+                     '<span class="t">' + escText(label) + '</span></a></li>';
+            }).join("");
+
+            if (!list.length) {
+              html = '<li class="ws-empty">No trackers yet</li>';
+            }
+
+            box.innerHTML = html + addRow();
+            wireAdd(sb);
+          });
+      }).catch(function (err) {
+        /* Most likely cause: signed out, or offline. The parent menu
+           item still works, so leave the sub-list empty and quiet. */
+        console.warn("Tracker submenu unavailable:", err && err.message);
+      });
+    }
+
+    if (window.sb) { load(window.sb); return; }
+    var n = 0;
+    var timer = setInterval(function () {
+      if (window.sb) { clearInterval(timer); load(window.sb); }
+      else if (++n > 40) { clearInterval(timer); }
     }, 100);
   })();
 
