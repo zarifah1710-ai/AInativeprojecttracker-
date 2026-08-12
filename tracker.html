@@ -84,6 +84,22 @@ table{border-collapse:collapse;width:100%;min-width:1100px;background:#fff;borde
 /* Rename field for a module name, in the left-hand column. */
 .mod-input{width:100%;font-family:inherit;font-size:12px;font-weight:600;color:var(--text-primary);background:#fff;border:1.5px solid var(--edit-ring);border-radius:4px;padding:4px 6px;outline:none}
 .mod-input:focus{box-shadow:0 0 0 3px rgba(99,102,241,.2)}
+
+/* ---- adding and deleting module rows (edit mode only) ---- */
+/* The name field and its delete button share the left-hand cell. */
+.mod-cell-wrap{display:flex;align-items:center;gap:6px}
+.mod-del{flex:none;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:5px;cursor:pointer;color:#94A3B8;transition:background .15s,color .15s}
+.mod-del:hover{background:#FEE2E2;color:#B91C1C}
+.mod-del:focus-visible{outline:2px solid var(--edit-ring);outline-offset:1px}
+/* The add row sits at the bottom of the grid and spans every column. */
+tr.add-row td{background:#F8FAFC!important;border-bottom:1px solid var(--border);padding:0}
+.add-mod-btn{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;font-size:12px;font-weight:600;color:#4F46E5;transition:background .15s}
+.add-mod-btn:hover{background:#EEF2FF}
+.add-mod-btn:focus-visible{outline:2px solid var(--edit-ring);outline-offset:-2px}
+.add-mod-btn .p{flex:none;width:17px;height:17px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1}
+/* Shown when a tracker has no modules at all. */
+tr.empty-row td{background:#fff!important;padding:34px 20px;text-align:center;color:var(--text-secondary);font-size:13px;line-height:1.6}
+tr.empty-row b{display:block;font-size:14px;color:var(--text-primary);margin-bottom:4px}
 tr.data-row:nth-child(odd) td{background:#fff}
 tr.data-row:nth-child(even) td{background:var(--row-alt)}
 tr.data-row td{border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
@@ -453,12 +469,19 @@ async function loadStructure() {
   const modRes = await sb.from('modules').select('*')
     .eq('tracker_id', TRACKER_ID).order('position');
 
-  if (modRes.error || !(modRes.data || []).length) {
-    if (modRes.error) console.error('Modules unavailable, using built-in list:', modRes.error);
+  /* An ERROR means the modules table isn't there — fall back to the
+     built-in names, read-only, so the grid still shows something.
+
+     An EMPTY RESULT is different, and must not be treated the same way:
+     a newly created tracker legitimately has no modules yet. Showing 22
+     borrowed names there would be inventing rows the user never made.
+     Empty stays empty, and stays editable so they can add their own. */
+  if (modRes.error) {
+    console.error('Modules unavailable, using built-in list:', modRes.error);
     MODULES = STARTER_MODULES.map(name => ({ key: name, label: name }));
     MODULES_EDITABLE = false;
   } else {
-    MODULES = modRes.data.map(m => ({ key: m.module_key, label: m.name }));
+    MODULES = (modRes.data || []).map(m => ({ key: m.module_key, label: m.name }));
     MODULES_EDITABLE = true;
   }
 
@@ -549,20 +572,14 @@ async function seedStructureFor(trackerId) {
   );
   if (cErr) throw cErr;
 
-  /* New accounts also get the starter module names, so the tracker is
-     usable straight away. Once add/delete lands, this becomes an empty
-     list with a "Create your first module" prompt instead — an empty
-     grid is only helpful once you can actually add rows to it. */
-  const { error: mErr } = await sb.from('modules').insert(
-    STARTER_MODULES.map((name, i) => ({
-      tracker_id: trackerId,
-      user_id:    currentUser.id,
-      module_key: name,
-      name:       name,
-      position:   i
-    }))
-  );
-  if (mErr) throw mErr;
+  /* No modules. A new tracker starts with an empty grid and an "Add
+     your first module" prompt.
+
+     It used to be seeded with 22 starter names copied from the original
+     V2 delivery tracker, which made every new tracker for a different
+     project arrive full of rows that had nothing to do with it. Now that
+     modules can be added and deleted from the grid, an empty start is
+     the honest one. */
 }
 
 /* ── The app title and description in the top-left ──
@@ -874,6 +891,27 @@ function bulkApply(val) {
 
 function renderTable() {
   const tbody = document.getElementById('tableBody');
+  const span = COLS.length + 1;   // module column + every progress column
+
+  /* A tracker with no modules yet. Only reachable when the modules table
+     is really there — the read-only fallback always has 22 names. */
+  if (!MODULES.length) {
+    tbody.innerHTML =
+      `<tr class="empty-row"><td colspan="${span}">` +
+        `<b>No modules yet</b>` +
+        (MODULES_EDITABLE
+          ? `Click <b style="display:inline">Edit progress</b>, then <b style="display:inline">Add module</b>, to create your first row.`
+          : `This tracker's modules could not be loaded.`) +
+      `</td></tr>` +
+      (editMode && MODULES_EDITABLE ? addRowHtml(span) : '');
+
+    /* The early return below skips the wiring at the end of this
+       function, so the Add button has to be connected here too. */
+    const emptyAdd = tbody.querySelector('#addModBtn');
+    if (emptyAdd) emptyAdd.addEventListener('click', addModule);
+    return;
+  }
+
   tbody.innerHTML = MODULES.map(mod => {
     const cells = COLS.map(col => {
       const sep = col.sep ? ' cell-stage-sep' : '';
@@ -885,12 +923,135 @@ function renderTable() {
        display name changes — data-module-key stays fixed, which is what
        keeps this row's values attached to it. */
     const nameCell = (editMode && MODULES_EDITABLE)
-      ? `<input class="mod-input" type="text" maxlength="80" value="${escHtml(mod.label)}"
-           data-module-key="${escHtml(mod.key)}" aria-label="Rename module ${escHtml(mod.label)}">`
+      ? `<div class="mod-cell-wrap">
+           <input class="mod-input" type="text" maxlength="80" value="${escHtml(mod.label)}"
+             data-module-key="${escHtml(mod.key)}" aria-label="Rename module ${escHtml(mod.label)}">
+           <button class="mod-del" type="button" data-del-key="${escHtml(mod.key)}"
+             title="Delete ${escHtml(mod.label)}" aria-label="Delete module ${escHtml(mod.label)}">
+             <svg width="13" height="13" viewBox="0 0 15 15" fill="none">
+               <path d="M2.5 4h10M6 4V2.5h3V4M3.8 4l.6 8.2a1 1 0 001 .8h4.2a1 1 0 001-.8L11.2 4"
+                 stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                 stroke-linejoin="round"/></svg>
+           </button>
+         </div>`
       : escHtml(mod.label);
 
     return `<tr class="data-row"><td class="cell-module">${nameCell}</td>${cells}</tr>`;
-  }).join('');
+  }).join('') + (editMode && MODULES_EDITABLE ? addRowHtml(span) : '');
+
+  /* Delegated rather than one listener per row, so re-rendering the
+     table never leaves stale handlers behind. */
+  tbody.querySelectorAll('.mod-del').forEach(b =>
+    b.addEventListener('click', () => deleteModule(b.dataset.delKey)));
+
+  const addBtn = tbody.querySelector('#addModBtn');
+  if (addBtn) addBtn.addEventListener('click', addModule);
+}
+
+function addRowHtml(span) {
+  return `<tr class="add-row"><td colspan="${span}">
+    <button class="add-mod-btn" type="button" id="addModBtn">
+      <span class="p">+</span> Add module
+    </button></td></tr>`;
+}
+
+/* ── Add a module ──
+   Written to the database immediately rather than held until Save.
+   Renames are deferred because they are just text; a new row is
+   structural — the progress cells beside it need something real to
+   attach to. The button says "Add module", and it adds one. */
+async function addModule() {
+  if (!TRACKER_ID) { showToast('Not connected — cannot add modules'); return; }
+
+  const raw = prompt('Name for the new module:');
+  if (raw === null) return;
+  const name = raw.trim();
+  if (!name) return;
+
+  /* module_key is the stable identifier progress rows are stored
+     against, and it must never change afterwards. Names can collide
+     ("Reporting" twice), so the key is made unique here rather than
+     reusing the name blindly — otherwise the second one would inherit
+     the first one's values. */
+  let key = name;
+  if (MODULES.some(m => m.key === key)) {
+    let n = 2;
+    while (MODULES.some(m => m.key === `${name} (${n})`)) n++;
+    key = `${name} (${n})`;
+  }
+
+  const btn = document.getElementById('addModBtn');
+  if (btn) btn.disabled = true;
+
+  const { error } = await sb.from('modules').insert([{
+    tracker_id: TRACKER_ID,
+    user_id:    currentUser.id,
+    module_key: key,
+    name:       name,
+    position:   MODULES.length
+  }]);
+
+  if (btn) btn.disabled = false;
+
+  if (error) {
+    alert('Could not add the module:\n\n' + error.message);
+    return;
+  }
+
+  MODULES.push({ key, label: name });
+
+  /* Give the new row its (empty) cells in both the live grid and the
+     snapshot Cancel restores — otherwise cancelling would revert to a
+     shape that no longer matches MODULES and the row would render blank. */
+  data[key] = {};
+  COLS.forEach(c => { data[key][c.key] = null; });
+  if (editSnapshot) {
+    editSnapshot[key] = {};
+    COLS.forEach(c => { editSnapshot[key][c.key] = null; });
+  }
+
+  buildBulkSelects();
+  renderTable();
+  showToast(`Added "${name}"`);
+}
+
+/* ── Delete a module ──
+   Removes the row and every progress value on it. Immediate, like add. */
+async function deleteModule(key) {
+  if (!TRACKER_ID) return;
+  const mod = MODULES.find(m => m.key === key);
+  if (!mod) return;
+
+  /* Say how much is actually at stake before asking. "Delete this row?"
+     is a very different question when the row holds nine values. */
+  const filled = COLS.reduce((n, c) =>
+    n + ((data[key] && data[key][c.key] != null) ? 1 : 0), 0);
+
+  const warning = filled
+    ? `\n\nThis will also delete ${filled} progress value${filled > 1 ? 's' : ''} on this row.`
+    : '';
+
+  if (!confirm(`Delete the module "${mod.label}"?${warning}\n\nThis cannot be undone.`)) return;
+
+  /* Progress rows first. They are keyed by module name, not by a
+     foreign key to modules, so nothing removes them automatically —
+     deleting only the module would leave orphaned values behind that
+     would silently reappear under any future module with the same key. */
+  const { error: pErr } = await sb.from('progress').delete()
+    .eq('tracker_id', TRACKER_ID).eq('module', key);
+  if (pErr) { alert('Could not delete this module\'s values:\n\n' + pErr.message); return; }
+
+  const { error: mErr } = await sb.from('modules').delete()
+    .eq('tracker_id', TRACKER_ID).eq('module_key', key);
+  if (mErr) { alert('Could not delete the module:\n\n' + mErr.message); return; }
+
+  MODULES = MODULES.filter(m => m.key !== key);
+  delete data[key];
+  if (editSnapshot) delete editSnapshot[key];
+
+  buildBulkSelects();
+  renderTable();
+  showToast(`Deleted "${mod.label}"`);
 }
 
 function enterEdit() {
