@@ -166,6 +166,69 @@
     '#ws-signout:focus-visible{outline:2px solid #AFA9EC;outline-offset:-2px}',
     '#ws-signout[hidden]{display:none}',
 
+    /* feedback — same row shape as sign out, sitting just above it, so
+       the rail stays one tidy column of icons when collapsed */
+    '#ws-feedback{all:unset;box-sizing:border-box;display:flex;align-items:center;',
+      'gap:12px;min-height:44px;padding:9px 15px;cursor:pointer;color:#cfcbe8;',
+      'flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);',
+      'transition:background .13s,color .13s}',
+    '#ws-feedback:hover{background:rgba(175,169,236,.2);color:#fff}',
+    '#ws-feedback:focus-visible{outline:2px solid #AFA9EC;outline-offset:-2px}',
+    '#ws-feedback[hidden]{display:none}',
+
+    /* ---- the panel the feedback button opens ----
+       Anchored beside the rail rather than over it, and it follows the
+       rail outwards when the menu is expanded. */
+    '#ws-fb{position:fixed;left:calc(var(--ws-rail) + 12px);bottom:16px;z-index:9001;',
+      'width:360px;max-width:calc(100vw - var(--ws-rail) - 24px);',
+      'max-height:calc(100vh - 32px);background:#fff;color:#0F172A;',
+      'border:1px solid #CBD5E1;border-radius:14px;',
+      'box-shadow:0 20px 50px rgba(15,31,61,.25);display:none;',
+      'flex-direction:column;overflow:hidden;transition:left .18s ease;',
+      'font-family:"DM Sans",Inter,system-ui,-apple-system,"Segoe UI",sans-serif}',
+    '#ws-nav.ws-open ~ #ws-fb{left:calc(var(--ws-open) + 12px);',
+      'max-width:calc(100vw - var(--ws-open) - 24px)}',
+    '#ws-fb.ws-fb-on{display:flex}',
+    '.ws-fb-head{display:flex;align-items:center;justify-content:space-between;',
+      'padding:14px 18px;border-bottom:1px solid #E2E8F0}',
+    '.ws-fb-head b{font-size:15px;font-weight:700}',
+    '#ws-fb-close{all:unset;cursor:pointer;font-size:20px;line-height:1;color:#94A3B8}',
+    '#ws-fb-close:hover{color:#0F172A}',
+    '.ws-fb-tabs{display:flex;border-bottom:1px solid #E2E8F0}',
+    '.ws-fb-tab{all:unset;box-sizing:border-box;flex:1;text-align:center;padding:10px;',
+      'font-size:13px;font-weight:600;color:#64748B;cursor:pointer;',
+      'border-bottom:2px solid transparent}',
+    '.ws-fb-tab.on{color:#6366F1;border-bottom-color:#6366F1}',
+    '.ws-fb-body{flex:1;overflow-y:auto;padding:16px 18px;font-size:13px}',
+    '.ws-fb-body p{margin:0 0 6px}',
+    '.ws-fb-hint{font-size:11px;color:#64748B;margin-bottom:12px!important}',
+    '#ws-fb-scores{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px}',
+    '#ws-fb-scores button{all:unset;box-sizing:border-box;flex:1;min-width:26px;',
+      'text-align:center;padding:8px 0;border-radius:5px;font-size:12px;',
+      'font-weight:700;cursor:pointer;border:2px solid transparent}',
+    '.ws-fb-body textarea{width:100%;box-sizing:border-box;padding:8px 10px;',
+      'border:1px solid #CBD5E1;border-radius:6px;font-size:12px;',
+      'font-family:inherit;resize:vertical;margin-bottom:10px}',
+    '.ws-fb-send{all:unset;box-sizing:border-box;padding:8px 14px;background:#6366F1;',
+      'color:#fff;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}',
+    '.ws-fb-send[disabled]{opacity:.5;cursor:default}',
+    '.ws-fb-row{display:flex;align-items:center;gap:10px}',
+    '.ws-fb-status{font-size:11px;color:#64748B}',
+    '#ws-fb-list{border-top:1px solid #F1F5F9;padding-top:10px;margin-top:12px;',
+      'max-height:220px;overflow-y:auto}',
+    '.ws-fb-c{padding:8px 0;border-bottom:1px solid #F1F5F9}',
+    '.ws-fb-c b{display:block;font-size:12px}',
+    '.ws-fb-c .m{font-size:12px;color:#334155;margin:3px 0;white-space:pre-wrap}',
+    '.ws-fb-c .d{font-size:10px;color:#94A3B8}',
+    '.ws-fb-none{font-size:11px;color:#94A3B8}',
+
+    /* On narrow screens the panel spans the page rather than hanging
+       off the side of it. */
+    '@media (max-width:640px){',
+      '#ws-fb,#ws-nav.ws-open ~ #ws-fb{left:calc(var(--ws-rail) + 8px);',
+        'right:8px;width:auto;max-width:none}',
+    '}',
+
     /* On narrow screens the expanded panel floats over the page
        instead of squeezing it. */
     '@media (max-width:640px){',
@@ -173,7 +236,7 @@
     '}',
 
     '@media (prefers-reduced-motion:reduce){',
-      '#ws-nav,#ws-title,.ws-lbl,#ws-foot{transition:none}',
+      '#ws-nav,#ws-title,.ws-lbl,#ws-foot,#ws-fb{transition:none}',
     '}'
   ].join("");
 
@@ -219,6 +282,15 @@
       '<span id="ws-title">Menu</span>' +
     '</button>' +
     '<ul id="ws-list">' + itemsHTML + '</ul>' +
+    '<button id="ws-feedback" type="button" hidden ' +
+            'title="Feedback — rate this and leave a comment" aria-expanded="false">' +
+      '<span class="ws-ico">' +
+        '<svg viewBox="0 0 20 20" aria-hidden="true">' +
+          '<path d="M4 3.5h12a1.5 1.5 0 011.5 1.5v7a1.5 1.5 0 01-1.5 1.5H8.6L5 17v-3.5H4A1.5 1.5 0 012.5 12V5A1.5 1.5 0 014 3.5z"/>' +
+        '</svg>' +
+      '</span>' +
+      '<span class="ws-lbl">Feedback</span>' +
+    '</button>' +
     '<button id="ws-signout" type="button" hidden title="Sign out">' +
       '<span class="ws-ico">' +
         '<svg viewBox="0 0 20 20" aria-hidden="true">' +
@@ -285,6 +357,246 @@
         return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m];
       });
   }
+
+  /* ---- feedback -------------------------------------------------
+     The same "rate us / comments" panel the tracker has in its corner,
+     but reachable from the sidebar, so feedback can be given from any
+     page rather than only from inside a tracker.
+
+     The tracker keeps its own floating button as well: two buttons,
+     two panels, one pair of tables behind them. Everything here is
+     prefixed ws-fb- so the two can never collide.
+
+     Same rules as sign-out: reuse the page's Supabase client, and stay
+     hidden on pages that have none (the swimlane editor), because both
+     tables are per-account and there is nobody to attribute a rating
+     to without a session.                                            */
+  (function initFeedback() {
+    var btn = document.getElementById("ws-feedback");
+    if (!btn) return;
+
+    var panel = document.createElement("div");
+    panel.id = "ws-fb";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Share your thoughts");
+    panel.innerHTML =
+      '<div class="ws-fb-head">' +
+        '<b>Share your thoughts</b>' +
+        '<button id="ws-fb-close" type="button" aria-label="Close">&times;</button>' +
+      '</div>' +
+      '<div class="ws-fb-tabs">' +
+        '<button class="ws-fb-tab on" type="button" id="ws-fb-t-nps">Rate us</button>' +
+        '<button class="ws-fb-tab" type="button" id="ws-fb-t-com">Comments</button>' +
+      '</div>' +
+      '<div class="ws-fb-body">' +
+        '<div id="ws-fb-p-nps">' +
+          '<p><b>How likely are you to recommend this?</b></p>' +
+          '<p class="ws-fb-hint">0 = not at all &middot; 10 = extremely likely</p>' +
+          '<div id="ws-fb-scores"></div>' +
+          '<textarea id="ws-fb-why" rows="2" placeholder="Optional: tell us why"></textarea>' +
+          '<div class="ws-fb-row">' +
+            '<button class="ws-fb-send" type="button" id="ws-fb-send-nps" disabled>' +
+              'Submit rating</button>' +
+            '<span class="ws-fb-status" id="ws-fb-nps-status"></span>' +
+          '</div>' +
+        '</div>' +
+        '<div id="ws-fb-p-com" style="display:none">' +
+          '<p class="ws-fb-hint" id="ws-fb-as">Posting as your signed-in account</p>' +
+          '<textarea id="ws-fb-msg" rows="3" placeholder="Your comment..."></textarea>' +
+          '<div class="ws-fb-row">' +
+            '<button class="ws-fb-send" type="button" id="ws-fb-send-com">' +
+              'Post comment</button>' +
+            '<span class="ws-fb-status" id="ws-fb-com-status"></span>' +
+          '</div>' +
+          '<div id="ws-fb-list"><p class="ws-fb-none">Loading&hellip;</p></div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(panel);
+
+    var closeBtn = document.getElementById("ws-fb-close");
+    var tabNps   = document.getElementById("ws-fb-t-nps");
+    var tabCom   = document.getElementById("ws-fb-t-com");
+    var paneNps  = document.getElementById("ws-fb-p-nps");
+    var paneCom  = document.getElementById("ws-fb-p-com");
+    var scoresEl = document.getElementById("ws-fb-scores");
+    var whyEl    = document.getElementById("ws-fb-why");
+    var sendNps  = document.getElementById("ws-fb-send-nps");
+    var npsStat  = document.getElementById("ws-fb-nps-status");
+    var asEl     = document.getElementById("ws-fb-as");
+    var msgEl    = document.getElementById("ws-fb-msg");
+    var sendCom  = document.getElementById("ws-fb-send-com");
+    var comStat  = document.getElementById("ws-fb-com-status");
+    var listEl   = document.getElementById("ws-fb-list");
+
+    var client = null;      // the page's Supabase client, once found
+    var user   = null;      // who is signed in
+    var score  = null;      // the rating currently picked
+    var loaded = false;     // comments fetched at least once
+
+    function show(on) {
+      panel.classList.toggle("ws-fb-on", on);
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    function isOpen() { return panel.classList.contains("ws-fb-on"); }
+
+    btn.addEventListener("click", function () { show(!isOpen()); });
+    closeBtn.addEventListener("click", function () { show(false); });
+
+    /* Escape closes the panel before it closes the menu, so one press
+       undoes one thing. */
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && isOpen()) {
+        e.stopPropagation();
+        show(false);
+        btn.focus();
+      }
+    }, true);
+
+    /* ---- tabs ---- */
+    function tab(which) {
+      var nps = which === "nps";
+      tabNps.classList.toggle("on", nps);
+      tabCom.classList.toggle("on", !nps);
+      paneNps.style.display = nps ? "block" : "none";
+      paneCom.style.display = nps ? "none" : "block";
+      if (!nps && !loaded) { loaded = true; loadComments(); }
+    }
+    tabNps.addEventListener("click", function () { tab("nps"); });
+    tabCom.addEventListener("click", function () { tab("com"); });
+
+    /* ---- the 0-10 scale ---- */
+    for (var i = 0; i <= 10; i++) {
+      (function (n) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = n;
+        var bg = "#FEE2E2", fg = "#7F1D1D";
+        if (n >= 7 && n <= 8) { bg = "#FEF3C7"; fg = "#78350F"; }
+        if (n >= 9) { bg = "#D1FAE5"; fg = "#065F46"; }
+        b.style.background = bg;
+        b.style.color = fg;
+        b.addEventListener("click", function () {
+          score = n;
+          Array.prototype.forEach.call(scoresEl.children, function (o) {
+            o.style.borderColor = "transparent";
+          });
+          b.style.borderColor = "#0F172A";
+          sendNps.disabled = false;
+          npsStat.textContent = "";
+        });
+        scoresEl.appendChild(b);
+      })(i);
+    }
+
+    function clearScore() {
+      score = null;
+      sendNps.disabled = true;
+      Array.prototype.forEach.call(scoresEl.children, function (o) {
+        o.style.borderColor = "transparent";
+      });
+    }
+
+    sendNps.addEventListener("click", function () {
+      if (score === null || !client) return;
+      sendNps.disabled = true;
+      npsStat.style.color = "#64748B";
+      npsStat.textContent = "Submitting…";
+
+      client.from("nps_responses").insert([{
+        user_id: user && user.id,
+        score: score,
+        comment: whyEl.value.trim() || null
+      }]).then(function (res) {
+        if (res.error) throw res.error;
+        npsStat.style.color = "#16A34A";
+        npsStat.textContent = "✅ Thank you!";
+        whyEl.value = "";
+        clearScore();
+      }).catch(function (err) {
+        npsStat.style.color = "#DC2626";
+        npsStat.textContent = "Error: " + (err.message || err);
+        sendNps.disabled = false;
+      });
+    });
+
+    /* ---- comments ---- */
+    function loadComments() {
+      if (!client) return;
+      if (user && user.email) asEl.textContent = "Posting as " + user.email;
+
+      client.from("comments").select("*")
+        .order("created_at", { ascending: false }).limit(20)
+        .then(function (res) {
+          if (res.error) throw res.error;
+          var rows = res.data || [];
+          if (!rows.length) {
+            listEl.innerHTML =
+              '<p class="ws-fb-none">You haven\'t posted any comments yet.</p>';
+            return;
+          }
+          listEl.innerHTML = rows.map(function (c) {
+            return '<div class="ws-fb-c">' +
+              '<b>' + escText(c.name || "Anonymous") + '</b>' +
+              '<div class="m">' + escText(c.message) + '</div>' +
+              '<div class="d">' +
+                escText(new Date(c.created_at).toLocaleString("en-MY")) +
+              '</div></div>';
+          }).join("");
+        }).catch(function (err) {
+          listEl.innerHTML = '<p class="ws-fb-none" style="color:#DC2626">Error: ' +
+            escText(err.message || err) + '</p>';
+        });
+    }
+
+    sendCom.addEventListener("click", function () {
+      if (!client) return;
+      var message = msgEl.value.trim();
+      if (!message) {
+        comStat.style.color = "#DC2626";
+        comStat.textContent = "Write a comment first.";
+        return;
+      }
+      sendCom.disabled = true;
+      comStat.style.color = "#64748B";
+      comStat.textContent = "Posting…";
+
+      /* The name comes from the signed-in account, not a free-text box,
+         so a comment can't be posted under someone else's name. */
+      client.from("comments").insert([{
+        user_id: user && user.id,
+        name: (user && user.email) || "Unknown",
+        message: message
+      }]).then(function (res) {
+        if (res.error) throw res.error;
+        comStat.style.color = "#16A34A";
+        comStat.textContent = "✅ Posted!";
+        msgEl.value = "";
+        loadComments();
+      }).catch(function (err) {
+        comStat.style.color = "#DC2626";
+        comStat.textContent = "Error: " + (err.message || err);
+      }).then(function () { sendCom.disabled = false; });
+    });
+
+    /* ---- only offer it to a signed-in visitor ---- */
+    function wire(sb) {
+      sb.auth.getSession().then(function (res) {
+        var session = res && res.data && res.data.session;
+        if (!session) return;                 // signed out: stay hidden
+        client = sb;
+        user = session.user;
+        btn.hidden = false;
+      }).catch(function () { /* leave hidden */ });
+    }
+
+    if (window.sb) { wire(window.sb); return; }
+    var tries = 0;
+    var t = setInterval(function () {
+      if (window.sb) { clearInterval(t); wire(window.sb); }
+      else if (++tries > 40) { clearInterval(t); }   // ~4s
+    }, 100);
+  })();
+
 
   (function initTrackerChildren() {
     var box = document.getElementById("ws-sub-trackers");
